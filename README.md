@@ -1,1 +1,1 @@
-# any-python-template
+# pydantic-duality
