@@ -1,16 +1,7 @@
 import importlib.metadata
 import inspect
 from types import GenericAlias, UnionType
-from typing import (
-    TYPE_CHECKING,
-    Annotated,
-    ClassVar,
-    Iterable,
-    Union,
-    _AnnotatedAlias,
-    get_args,
-    get_origin,
-)
+from typing import Annotated, ClassVar, Iterable, Union, get_args, get_origin
 
 from pydantic import BaseConfig, BaseModel, Extra
 from pydantic.main import ModelMetaclass
@@ -32,7 +23,7 @@ def _resolve_annotation(annotation, attr: str):
         return GenericAlias(get_origin(annotation), tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
     elif isinstance(annotation, UnionType):
         return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in annotation.__args__))
-    elif isinstance(annotation, _AnnotatedAlias):
+    elif isinstance(annotation, AnnotatedType):
         return Annotated.__class_getitem__(
             tuple(
                 [
