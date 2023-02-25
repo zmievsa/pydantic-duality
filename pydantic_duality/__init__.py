@@ -104,7 +104,6 @@ class ModelDuplicatorMeta(ModelMetaclass):
         return set(super().__dir__()) | set(dir(getattr(self, REQUEST_ATTR)))
 
 
-# This is only here for type hints
 class ConfigMixin(BaseModel, metaclass=ModelDuplicatorMeta, __config__=BaseConfig):
     __response__: ClassVar[type[Self]]
     __request__: ClassVar[type[Self]]
