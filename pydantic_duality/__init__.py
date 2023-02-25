@@ -15,8 +15,6 @@ AnnotatedType = type(Annotated[int, int])
 
 
 def _resolve_annotation(annotation, attr: str):
-    # if "ChildSchema1" in str(annotation):
-    #     breakpoint()
     if inspect.isclass(annotation) and isinstance(annotation, ModelDuplicatorMeta):
         return getattr(annotation, attr)
     elif isinstance(annotation, GenericAlias):
