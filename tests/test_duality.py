@@ -149,3 +149,37 @@ def test_annotated_model_creation_with_regular_metadata(field_type):
     assert Schema.__fields__["field"].annotation is field_type
     assert Schema.__request__.__fields__["field"].annotation is field_type
     assert Schema.__response__.__fields__["field"].annotation is field_type
+
+
+def test_eq():
+    class Schema(ConfigMixin):
+        field: int
+
+    class Schema2(ConfigMixin):
+        field: int
+
+    assert Schema.__request__ == Schema
+    assert Schema.__response__ != Schema
+    assert Schema.__request__ != Schema.__response__
+
+    assert Schema != Schema2
+
+
+def test_hash():
+    class Schema(ConfigMixin):
+        field: int
+
+    assert hash(Schema.__request__) == hash(Schema)
+
+
+def test_set_items():
+    class Schema(ConfigMixin):
+        field: int
+
+    assert {Schema, Schema.__request__} == {Schema}
+    assert {Schema, Schema.__request__, Schema.__response__} == {Schema.__request__, Schema.__response__}
+
+
+def test_fastapi_weird_lack_of_qualname():
+    # No error should be raised even though neither __annotations__ nor __qualname__ are present
+    type(ConfigMixin)("SomeModel", (ConfigMixin,), {})

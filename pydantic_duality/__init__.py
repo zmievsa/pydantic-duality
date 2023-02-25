@@ -38,12 +38,13 @@ def _resolve_annotation(annotation, attr: str):
 
 def _alter_attrs(attrs: dict[str, object], attr: str):
     attrs = attrs.copy()
-    if "__annotations__" in attrs:
-        annotations = attrs["__annotations__"].copy()
+    if "__qualname__" in attrs:
         if attr == RESPONSE_ATTR:
             attrs["__qualname__"] = attrs["__qualname__"] + "Response"
         else:
             attrs["__qualname__"] = attrs["__qualname__"] + "Request"
+    if "__annotations__" in attrs:
+        annotations = attrs["__annotations__"].copy()
         for key, val in annotations.items():
             annotations[key] = _resolve_annotation(val, attr)
         attrs["__annotations__"] = annotations
@@ -102,6 +103,15 @@ class ModelDuplicatorMeta(ModelMetaclass):
 
     def __dir__(self) -> Iterable[str]:
         return set(super().__dir__()) | set(dir(getattr(self, REQUEST_ATTR)))
+
+    def __eq__(self, __o: object) -> bool:
+        if isinstance(__o, ModelDuplicatorMeta):
+            return super().__eq__(__o)
+        else:
+            return self.__request__ == __o
+
+    def __hash__(self) -> int:
+        return hash(self.__request__)
 
 
 class ConfigMixin(BaseModel, metaclass=ModelDuplicatorMeta, __config__=BaseConfig):
