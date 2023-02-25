@@ -31,8 +31,8 @@ exclude_lines = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-typing-extensions = "^4.5.0"
-pydantic = "^1.10.5"
+typing-extensions = ">=4.4.0"
+pydantic = ">=1.9.2"
 
 [tool.poetry.dev-dependencies]
 pyupgrade = "*"
