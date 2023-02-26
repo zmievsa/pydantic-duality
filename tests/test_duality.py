@@ -2,7 +2,7 @@ import abc
 from typing import Annotated, Literal
 
 import pytest
-from pydantic import BaseConfig, BaseModel, Extra, Field, ValidationError
+from pydantic import BaseModel, Extra, Field, ValidationError
 
 from pydantic_duality import ConfigMixin, ModelDuplicatorMeta, _resolve_annotation
 
@@ -75,10 +75,45 @@ def test_invalid_base_class():
             pass
 
 
-def test_issubclass(schemas):
+def test_issubclass_basemodel(schemas):
     assert issubclass(schemas["A"], BaseModel)
     assert issubclass(schemas["A"].__request__, BaseModel)
     assert issubclass(schemas["A"].__response__, BaseModel)
+
+
+def test_issubclass_inner_models():
+    class SubSchema(ConfigMixin):
+        pass
+
+    assert issubclass(SubSchema.__request__, SubSchema)
+    assert not issubclass(SubSchema.__response__, SubSchema)
+    assert not issubclass(SubSchema, SubSchema.__response__)
+    # assert not issubclass(SubSchema, SubSchema.__request__)  # See test_issubclass_weird_issubclass_error for more details
+    assert not issubclass(SubSchema.__response__, SubSchema.__request__)
+    assert not issubclass(SubSchema.__request__, SubSchema.__response__)
+
+
+@pytest.mark.xfail(
+    reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
+)
+def test_issubclass_weird_issubclass_error():
+    class SubSchema(ConfigMixin):
+        pass
+
+    # It fails in this order
+    assert issubclass(SubSchema.__request__, SubSchema)
+    assert not issubclass(SubSchema, SubSchema.__request__)  # fails here
+
+
+@pytest.mark.xfail(
+    reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
+)
+def test_issubclass_weird_issubclass_error2():
+    class SubSchema(ConfigMixin):
+        pass
+
+    assert not issubclass(SubSchema, SubSchema.__request__)
+    assert issubclass(SubSchema.__request__, SubSchema)  # fails here
 
 
 def test_ignore_forbid_attrs(schemas):
@@ -93,7 +128,10 @@ def test_ignore_forbid_attrs(schemas):
 
 
 def test_resolving(schemas):
-    _resolve_annotation(Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")], "__request__")
+    _resolve_annotation(
+        Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")],
+        "__request__",
+    )
 
 
 def test_model_creation(schemas):
@@ -101,7 +139,10 @@ def test_model_creation(schemas):
         schemas["A"].__response__.parse_obj(
             {
                 "hello": "world",
-                "darkness": {"my": "...", "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}]},
+                "darkness": {
+                    "my": "...",
+                    "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}],
+                },
             }
         )
     )
@@ -109,7 +150,10 @@ def test_model_creation(schemas):
         schemas["A"].parse_obj(
             {
                 "hello": "world",
-                "darkness": {"my": "...", "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}]},
+                "darkness": {
+                    "my": "...",
+                    "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}],
+                },
             }
         )
 
@@ -135,10 +179,34 @@ def test_annotated_model_creation_with_discriminator():
         assert type(child_req_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
         assert type(child_resp_schema.child) is locals()[f"ChildSchema{object_type}"].__response__
         with pytest.raises(ValidationError):
-            Schema.parse_obj({"child": {"object_type": object_type, "obj": object_type, "extra": "extra"}})
+            Schema.parse_obj(
+                {
+                    "child": {
+                        "object_type": object_type,
+                        "obj": object_type,
+                        "extra": "extra",
+                    }
+                }
+            )
         with pytest.raises(ValidationError):
-            Schema.__request__.parse_obj({"child": {"object_type": object_type, "obj": object_type, "extra": "extra"}})
-        Schema.__response__.parse_obj({"child": {"object_type": object_type, "obj": object_type, "extra": "extra"}})
+            Schema.__request__.parse_obj(
+                {
+                    "child": {
+                        "object_type": object_type,
+                        "obj": object_type,
+                        "extra": "extra",
+                    }
+                }
+            )
+        Schema.__response__.parse_obj(
+            {
+                "child": {
+                    "object_type": object_type,
+                    "obj": object_type,
+                    "extra": "extra",
+                }
+            }
+        )
 
 
 @pytest.mark.parametrize("field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]])
@@ -177,7 +245,10 @@ def test_set_items():
         field: int
 
     assert {Schema, Schema.__request__} == {Schema}
-    assert {Schema, Schema.__request__, Schema.__response__} == {Schema.__request__, Schema.__response__}
+    assert {Schema, Schema.__request__, Schema.__response__} == {
+        Schema.__request__,
+        Schema.__response__,
+    }
 
 
 def test_fastapi_weird_lack_of_qualname():

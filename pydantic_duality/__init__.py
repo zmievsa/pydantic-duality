@@ -1,7 +1,8 @@
 import importlib.metadata
 import inspect
+from collections.abc import Iterable
 from types import GenericAlias, UnionType
-from typing import Annotated, ClassVar, Iterable, Union, get_args, get_origin
+from typing import Annotated, ClassVar, Union, get_args, get_origin
 
 from pydantic import BaseConfig, BaseModel, Extra
 from pydantic.main import ModelMetaclass
@@ -18,7 +19,10 @@ def _resolve_annotation(annotation, attr: str):
     if inspect.isclass(annotation) and isinstance(annotation, ModelDuplicatorMeta):
         return getattr(annotation, attr)
     elif isinstance(annotation, GenericAlias):
-        return GenericAlias(get_origin(annotation), tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
+        return GenericAlias(
+            get_origin(annotation),
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
+        )
     elif isinstance(annotation, UnionType):
         return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in annotation.__args__))
     elif isinstance(annotation, AnnotatedType):
@@ -83,7 +87,12 @@ class ModelDuplicatorMeta(ModelMetaclass):
         response_bases = tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases)
 
         request_class = ModelMetaclass(f"{name}Request", request_bases, _alter_attrs(attrs, REQUEST_ATTR), **kwargs)
-        response_class = ModelMetaclass(f"{name}Response", response_bases, _alter_attrs(attrs, RESPONSE_ATTR), **kwargs)
+        response_class = ModelMetaclass(
+            f"{name}Response",
+            response_bases,
+            _alter_attrs(attrs, RESPONSE_ATTR),
+            **kwargs,
+        )
 
         type.__setattr__(new_class, REQUEST_ATTR, request_class)
         type.__setattr__(new_class, RESPONSE_ATTR, response_class)
@@ -112,6 +121,12 @@ class ModelDuplicatorMeta(ModelMetaclass):
 
     def __hash__(self) -> int:
         return hash(self.__request__)
+
+    def __instancecheck__(cls, instance) -> None:
+        return type.__instancecheck__(cls, instance) or isinstance(instance, cls.__request__)
+
+    def __subclasscheck__(cls, subclass: type):
+        return type.__subclasscheck__(cls, subclass) or issubclass(subclass, cls.__request__)
 
 
 class ConfigMixin(BaseModel, metaclass=ModelDuplicatorMeta, __config__=BaseConfig):

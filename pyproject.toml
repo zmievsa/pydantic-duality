@@ -1,7 +1,8 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "0.1.1"
-description = ""
+version = "0.2.0"
+description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
+repository = "https://github.com/Ovsyanka83/autograder"
 authors = ["Stanislav Zmiev <szmiev2000@gmail.com>"]
 license = "MIT"
 
