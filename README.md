@@ -12,7 +12,7 @@ pip install pydantic-duality
 
 ### Problem
 
-In API design, it is a good pattern to forbid any extra data from being sent to your endpoints. By default, pydantic just ignores extra data in FastAPI requests. You can fix that by passing `extra = Extra.forbid` to your model's config. But then you get into the following conundrum:
+In API design, it is a good pattern to forbid any extra data from being sent to your endpoints. By default, pydantic just ignores extra data in FastAPI requests. You can fix that by passing `extra = Extra.forbid` to your model's config. However, we needed to use Extra.ignore in our response models because we might send a lot more data than required with our responses. But then we get into the following conundrum:
 
 ```python
 class User(BaseModel):

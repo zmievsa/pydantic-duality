@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "0.2.2"
+version = "0.2.3"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/Ovsyanka83/pydantic-duality"
 readme = "README.md"
@@ -43,9 +43,6 @@ autoflake = "*"
 pytest = ">=7.2.1"
 pytest-cov = ">=4.0.0"
 isort = "*"
-
-[tool.poetry.group.dev.dependencies]
-pdbpp = "^0.10.3"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
