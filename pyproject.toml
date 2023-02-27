@@ -44,6 +44,24 @@ pytest = ">=7.2.1"
 pytest-cov = ">=4.0.0"
 isort = "*"
 
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+skip_glob = ['.venv/*', "_compat/*"]
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+
+[tool.bandit]
+exclude_dirs = ["/venv", "/tests", "/_compat"]
+skips = ["B104"]
+
+[tool.deptry]
+extend_exclude = ["settings/config.py"]
+
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"

@@ -12,7 +12,6 @@ __version__ = importlib.metadata.version("pydantic_duality")
 
 REQUEST_ATTR = "__request__"
 RESPONSE_ATTR = "__response__"
-AnnotatedType = type(Annotated[int, int])
 
 
 def _resolve_annotation(annotation, attr: str):
@@ -25,7 +24,7 @@ def _resolve_annotation(annotation, attr: str):
         )
     elif isinstance(annotation, UnionType):
         return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in annotation.__args__))
-    elif isinstance(annotation, AnnotatedType):
+    elif get_origin(annotation) is Annotated:
         return Annotated.__class_getitem__(
             tuple(
                 [
@@ -56,7 +55,7 @@ def _alter_attrs(attrs: dict[str, object], attr: str):
 
 
 class ModelDuplicatorMeta(ModelMetaclass):
-    def __new__(mcls, name: str, bases: tuple[type], attrs: dict[str, object], **kwargs):
+    def __new__(mcls, name: str, bases: tuple[type], attrs: dict[str, object], **kwargs) -> Self:
         new_class = type.__new__(mcls, name, bases, attrs)
         if not bases or not any(isinstance(b, (ModelMetaclass, ModelDuplicatorMeta)) for b in bases):
             raise TypeError(
