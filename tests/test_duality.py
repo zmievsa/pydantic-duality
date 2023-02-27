@@ -227,6 +227,7 @@ def test_eq():
         field: int
 
     assert Schema.__request__ == Schema
+    assert Schema == Schema.__request__
     assert Schema.__response__ != Schema
     assert Schema.__request__ != Schema.__response__
 
