@@ -122,6 +122,10 @@ def test_ignore_forbid_attrs(schemas):
         == Extra.forbid
     )
     assert (
+        schemas["A"].__request__.__response__.__response__.__request__.__request__.__patch_request__.Config.extra
+        == Extra.forbid
+    )
+    assert (
         schemas["A"].__request__.__response__.__response__.__request__.__request__.__response__.Config.extra
         == Extra.ignore
     )
@@ -135,16 +139,21 @@ def test_resolving(schemas):
 
 
 def test_model_creation(schemas):
-    print(
-        schemas["A"].__response__.parse_obj(
-            {
-                "hello": "world",
-                "darkness": {
-                    "my": "...",
-                    "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}],
-                },
-            }
-        )
+    schemas["A"].__response__.parse_obj(
+        {
+            "hello": "world",
+            "darkness": {
+                "my": "...",
+                "old": [{"friend": "s", "extra": "s", "grand": "d", "e": "e"}],
+            },
+        }
+    )
+    schemas["A"].__patch_request__.parse_obj(
+        {
+            "darkness": {
+                "old": [{}],
+            },
+        }
     )
     with pytest.raises(ValidationError):
         schemas["A"].parse_obj(

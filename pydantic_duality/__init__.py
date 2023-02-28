@@ -1,17 +1,19 @@
 import importlib.metadata
 import inspect
 from collections.abc import Iterable
+from dataclasses import InitVar, dataclass
 from types import GenericAlias, UnionType
 from typing import Annotated, ClassVar, Union, get_args, get_origin
 
-from pydantic import BaseConfig, BaseModel, Extra
-from pydantic.main import ModelMetaclass
-from typing_extensions import Self
+from pydantic import BaseConfig, BaseModel, Extra, Field
+from pydantic.main import FieldInfo, ModelMetaclass
+from typing_extensions import Self, dataclass_transform
 
 __version__ = importlib.metadata.version("pydantic_duality")
 
 REQUEST_ATTR = "__request__"
 RESPONSE_ATTR = "__response__"
+PATCH_REQUEST_ATTR = "__patch_request__"
 
 
 def _resolve_annotation(annotation, attr: str):
@@ -23,15 +25,10 @@ def _resolve_annotation(annotation, attr: str):
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
     elif isinstance(annotation, UnionType):
-        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in annotation.__args__))
+        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
     elif get_origin(annotation) is Annotated:
         return Annotated.__class_getitem__(
-            tuple(
-                [
-                    *[_resolve_annotation(a, attr) for a in annotation.__args__],
-                    *[_resolve_annotation(a, attr) for a in annotation.__metadata__],
-                ]
-            ),
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
     elif inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
@@ -44,16 +41,27 @@ def _alter_attrs(attrs: dict[str, object], attr: str):
     if "__qualname__" in attrs:
         if attr == RESPONSE_ATTR:
             attrs["__qualname__"] = attrs["__qualname__"] + "Response"
+        elif attr == PATCH_REQUEST_ATTR:
+            attrs["__qualname__"] = attrs["__qualname__"] + "PatchRequest"
         else:
             attrs["__qualname__"] = attrs["__qualname__"] + "Request"
     if "__annotations__" in attrs:
         annotations = attrs["__annotations__"].copy()
         for key, val in annotations.items():
             annotations[key] = _resolve_annotation(val, attr)
+            if attr == PATCH_REQUEST_ATTR:
+                if get_origin(annotations[key]) is Annotated:
+                    args = get_args(annotations[key])
+                    annotations[key] = Annotated.__class_getitem__(tuple([args[0] | None, *args[1:]]))
+                elif isinstance(annotations[key], str):
+                    annotations[key] += " | None"
+                else:
+                    annotations[key] = annotations[key] | None
         attrs["__annotations__"] = annotations
     return attrs
 
 
+@dataclass_transform(kw_only_default=True, field_specifiers=(Field, FieldInfo))
 class ModelDuplicatorMeta(ModelMetaclass):
     def __new__(mcls, name: str, bases: tuple[type], attrs: dict[str, object], **kwargs) -> Self:
         new_class = type.__new__(mcls, name, bases, attrs)
@@ -79,33 +87,41 @@ class ModelDuplicatorMeta(ModelMetaclass):
                     extra = Extra.ignore
 
             new_class.__request__ = BaseRequest
-            new_class.__response__ = BaseResponse
+            BaseRequest.__request__ = BaseRequest
+            BaseRequest.__response__ = BaseResponse
+            BaseRequest.__patch_request__ = BaseRequest
             return new_class
 
         request_bases = tuple(_resolve_annotation(b, REQUEST_ATTR) for b in bases)
-        response_bases = tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases)
 
-        request_class = ModelMetaclass(f"{name}Request", request_bases, _alter_attrs(attrs, REQUEST_ATTR), **kwargs)
+        request_class = ModelMetaclass(
+            f"{name}Request", request_bases, _alter_attrs(attrs, REQUEST_ATTR), **(kwargs | {"extra": Extra.forbid})
+        )
         response_class = ModelMetaclass(
             f"{name}Response",
-            response_bases,
+            tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases),
             _alter_attrs(attrs, RESPONSE_ATTR),
-            **kwargs,
+            **(kwargs | {"extra": Extra.ignore}),
+        )
+        patch_request_class = ModelMetaclass(
+            f"{name}PatchRequest",
+            tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
+            _alter_attrs(attrs, PATCH_REQUEST_ATTR),
+            **(kwargs | {"extra": Extra.forbid}),
         )
 
         type.__setattr__(new_class, REQUEST_ATTR, request_class)
-        type.__setattr__(new_class, RESPONSE_ATTR, response_class)
 
-        type.__setattr__(request_class, REQUEST_ATTR, request_class)
-        type.__setattr__(request_class, RESPONSE_ATTR, response_class)
-
-        type.__setattr__(response_class, REQUEST_ATTR, request_class)
-        type.__setattr__(response_class, RESPONSE_ATTR, response_class)
+        for cls in (request_class, response_class, patch_request_class):
+            type.__setattr__(cls, REQUEST_ATTR, request_class)
+            type.__setattr__(cls, RESPONSE_ATTR, response_class)
+            type.__setattr__(cls, PATCH_REQUEST_ATTR, patch_request_class)
 
         return new_class
 
     def __getattribute__(self, attr: str):
-        if attr in (REQUEST_ATTR, RESPONSE_ATTR, "__new__"):
+        # Note here that RESPONSE_ATTR goes into REQUEST_ATTR's __getattribute__ method
+        if attr in (REQUEST_ATTR, "__new__"):
             return type.__getattribute__(self, attr)
         return getattr(type.__getattribute__(self, REQUEST_ATTR), attr)
 

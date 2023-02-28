@@ -22,6 +22,7 @@ def schemas(request):
     class B(Base):
         my: str
         old: list[C]
+        right: "str | None"
 
     class G(Base):
         g: str

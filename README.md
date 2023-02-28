@@ -115,6 +115,10 @@ Auth.__response__.parse_object(
 )
 ```
 
+### Patch requests
+
+We applied the same principles to solve the problem of schemas for patching objects. Usually these schemas are one-to-one equivalent to regular request schemas except that all fields are nullable. If you wish to do the same thing automatically, you can use `__patch_request__` attribute similar to how you would use `__request__` and `__response__`.
+
 ## Usage
 
 ### Creation
@@ -192,4 +196,6 @@ If you specify extra=Extra.forbid or extra=Extra.ignore on your model explicitly
 
 ### Editor support
 
-This package is fully type hinted. mypy, pyright, and pycharm will detect that `__response__` and `__request__` attributes are equivalent to your model so you have full full editor support.
+This package is fully type hinted. mypy, pyright, and pycharm will detect that `__response__` and `__request__` attributes are equivalent to your model so you have full full editor support for them.
+
+`__patch_request__` is not well supported: pyright and mypy will still think that the model's attributes are non-nullable.
