@@ -1,6 +1,6 @@
 # pydantic-duality
 
-Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore
+Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional
 
 ---
 
