@@ -3,7 +3,7 @@ import inspect
 from collections.abc import Iterable
 from dataclasses import InitVar, dataclass
 from types import GenericAlias, UnionType
-from typing import Annotated, ClassVar, Union, get_args, get_origin
+from typing import Annotated, Callable, ClassVar, Union, get_args, get_origin
 
 from pydantic import BaseConfig, BaseModel, Extra, Field
 from pydantic.main import FieldInfo, ModelMetaclass
@@ -36,15 +36,10 @@ def _resolve_annotation(annotation, attr: str):
         return annotation
 
 
-def _alter_attrs(attrs: dict[str, object], attr: str):
+def _alter_attrs(attrs: dict[str, object], name: str, attr: str):
     attrs = attrs.copy()
     if "__qualname__" in attrs:
-        if attr == RESPONSE_ATTR:
-            attrs["__qualname__"] = attrs["__qualname__"] + "Response"
-        elif attr == PATCH_REQUEST_ATTR:
-            attrs["__qualname__"] = attrs["__qualname__"] + "PatchRequest"
-        else:
-            attrs["__qualname__"] = attrs["__qualname__"] + "Request"
+        attrs["__qualname__"] = name
     if "__annotations__" in attrs:
         annotations = attrs["__annotations__"].copy()
         for key, val in annotations.items():
@@ -59,6 +54,30 @@ def _alter_attrs(attrs: dict[str, object], attr: str):
                     annotations[key] = annotations[key] | None
         attrs["__annotations__"] = annotations
     return attrs
+
+
+@dataclass(slots=True)
+class _LazyConstructorDescriptor:
+    own_attr_name: str
+    constructor: Callable[[], object]
+
+    def __get__(self, instance, owner) -> object:
+        result = self.constructor()
+        setattr(owner, self.own_attr_name, result)
+        return result
+
+
+def _lazy_constructor_descriptor(
+    request_cls: type, own_attr_name: str, constructor: Callable[[], object]
+) -> _LazyConstructorDescriptor:
+    def constructor_wrapper() -> object:
+        obj = constructor()
+        obj.__request__ = request_cls
+        obj.__response__ = _LazyConstructorDescriptor(RESPONSE_ATTR, lambda: request_cls.__response__)
+        obj.__patch_request__ = _LazyConstructorDescriptor(PATCH_REQUEST_ATTR, lambda: request_cls.__patch_request__)
+        return obj
+
+    return _LazyConstructorDescriptor(own_attr_name, constructor_wrapper)
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(Field, FieldInfo))
@@ -86,7 +105,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
                 class Config(__config__):
                     extra = Extra.ignore
 
-            new_class.__request__ = BaseRequest
+            type.__setattr__(new_class, "__request__", BaseRequest)
             BaseRequest.__request__ = BaseRequest
             BaseRequest.__response__ = BaseResponse
             BaseRequest.__patch_request__ = BaseRequest
@@ -95,27 +114,33 @@ class ModelDuplicatorMeta(ModelMetaclass):
         request_bases = tuple(_resolve_annotation(b, REQUEST_ATTR) for b in bases)
 
         request_class = ModelMetaclass(
-            f"{name}Request", request_bases, _alter_attrs(attrs, REQUEST_ATTR), **(kwargs | {"extra": Extra.forbid})
-        )
-        response_class = ModelMetaclass(
-            f"{name}Response",
-            tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases),
-            _alter_attrs(attrs, RESPONSE_ATTR),
-            **(kwargs | {"extra": Extra.ignore}),
-        )
-        patch_request_class = ModelMetaclass(
-            f"{name}PatchRequest",
-            tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
-            _alter_attrs(attrs, PATCH_REQUEST_ATTR),
+            f"{name}Request",
+            request_bases,
+            _alter_attrs(attrs, f"{name}Request", REQUEST_ATTR),
             **(kwargs | {"extra": Extra.forbid}),
+        )
+        request_class.__response__ = _lazy_constructor_descriptor(
+            request_class,
+            RESPONSE_ATTR,
+            lambda: ModelMetaclass(
+                f"{name}Response",
+                tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases),
+                _alter_attrs(attrs, f"{name}Response", RESPONSE_ATTR),
+                **(kwargs | {"extra": Extra.ignore}),
+            ),
+        )
+        request_class.__patch_request__ = _lazy_constructor_descriptor(
+            request_class,
+            PATCH_REQUEST_ATTR,
+            lambda: ModelMetaclass(
+                f"{name}PatchRequest",
+                tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
+                _alter_attrs(attrs, f"{name}PatchRequest", PATCH_REQUEST_ATTR),
+                **(kwargs | {"extra": Extra.forbid}),
+            ),
         )
 
         type.__setattr__(new_class, REQUEST_ATTR, request_class)
-
-        for cls in (request_class, response_class, patch_request_class):
-            type.__setattr__(cls, REQUEST_ATTR, request_class)
-            type.__setattr__(cls, RESPONSE_ATTR, response_class)
-            type.__setattr__(cls, PATCH_REQUEST_ATTR, patch_request_class)
 
         return new_class
 
@@ -124,6 +149,9 @@ class ModelDuplicatorMeta(ModelMetaclass):
         if attr in (REQUEST_ATTR, "__new__"):
             return type.__getattribute__(self, attr)
         return getattr(type.__getattribute__(self, REQUEST_ATTR), attr)
+
+    def __setattr__(self, attr: str, value: object):
+        return setattr(type.__getattribute__(self, REQUEST_ATTR), attr, value)
 
     def __dir__(self) -> Iterable[str]:
         return set(super().__dir__()) | set(dir(getattr(self, REQUEST_ATTR)))

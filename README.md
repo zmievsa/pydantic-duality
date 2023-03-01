@@ -178,12 +178,13 @@ If you need to use `__response__` version or both versions of your model, you ca
 ```python
 
 class User(ConfigMixin):
-    id: UUID
+    id: str
     name: str
 
 
-User.__request__(id="e65014c9-4990-4b8d-8ce7-ab5a34ab41bc", name="Ovsyanka", hello="world") # ValidationError
-User.__response__(id="e65014c9-4990-4b8d-8ce7-ab5a34ab41bc", name="Ovsyanka", hello="world") # UserResponse object without "hello" field
+User.__request__(id="e65014c9", name="John", hello="world") # ValidationError
+User.__response__(id="e65014c9", name="John", hello="world") # UserResponse(id="e65014c9", name="John")
+User.__patch_request__(id="e65014c9") # UserResponse(id="e65014c9", name=None)
 ```
 
 ### FastAPI integration

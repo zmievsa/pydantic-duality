@@ -118,17 +118,25 @@ def test_issubclass_weird_issubclass_error2():
 
 def test_ignore_forbid_attrs(schemas):
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__request__.__request__.Config.extra
+        schemas["A"].__request__.__response__.__response__.__request__.__response__.__request__.Config.extra
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__request__.__patch_request__.Config.extra
+        schemas["A"].__request__.__response__.__response__.__request__.__response__.__patch_request__.Config.extra
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__request__.__response__.Config.extra
+        schemas["A"].__request__.__response__.__response__.__request__.__response__.__response__.Config.extra
         == Extra.ignore
     )
+
+
+def test_setattr():
+    class Schema(ConfigMixin):
+        s: str
+
+    Schema.__name__ = "Hewwo"
+    assert Schema.__request__.__name__ == "Hewwo"
 
 
 def test_resolving(schemas):
@@ -207,6 +215,16 @@ def test_annotated_model_creation_with_discriminator():
                     }
                 }
             )
+        with pytest.raises(ValidationError):
+            Schema.__patch_request__.parse_obj(
+                {
+                    "child": {
+                        "object_type": object_type,
+                        "extra": "extra",
+                    }
+                }
+            )
+        Schema.__patch_request__.parse_obj({"child": {"object_type": object_type}})
         Schema.__response__.parse_obj(
             {
                 "child": {
