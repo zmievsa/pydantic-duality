@@ -117,7 +117,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
             f"{name}Request",
             request_bases,
             _alter_attrs(attrs, f"{name}Request", REQUEST_ATTR),
-            **(kwargs | {"extra": Extra.forbid}),
+            **kwargs,
         )
         request_class.__response__ = _lazy_constructor_descriptor(
             request_class,
@@ -126,7 +126,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
                 f"{name}Response",
                 tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases),
                 _alter_attrs(attrs, f"{name}Response", RESPONSE_ATTR),
-                **(kwargs | {"extra": Extra.ignore}),
+                **kwargs,
             ),
         )
         request_class.__patch_request__ = _lazy_constructor_descriptor(
@@ -136,7 +136,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
                 f"{name}PatchRequest",
                 tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
                 _alter_attrs(attrs, f"{name}PatchRequest", PATCH_REQUEST_ATTR),
-                **(kwargs | {"extra": Extra.forbid}),
+                **kwargs,
             ),
         )
 

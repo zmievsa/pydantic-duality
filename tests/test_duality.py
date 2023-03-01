@@ -282,3 +282,32 @@ def test_set_items():
 def test_fastapi_weird_lack_of_qualname():
     # No error should be raised even though neither __annotations__ nor __qualname__ are present
     type(ConfigMixin)("SomeModel", (ConfigMixin,), {})
+
+
+def test_config_defined_in_model():
+    """We check that the config is possible to define and that it overrides the default config"""
+
+    class Schema(ConfigMixin):
+        field: int
+
+        class Config:
+            extra = Extra.ignore
+
+    assert Schema.__request__.Config.extra == Extra.ignore
+    assert Schema.__response__.Config.extra == Extra.ignore
+    assert Schema.__patch_request__.Config.extra == Extra.ignore
+
+    Schema(field=1, extra=2)
+
+
+def test_config_defined_in_kwargs():
+    """We check that the config is possible to define and that it overrides the default config"""
+
+    class Schema(ConfigMixin, extra=Extra.ignore):
+        field: int
+
+    assert Schema.__request__.Config.extra == Extra.ignore
+    assert Schema.__response__.Config.extra == Extra.ignore
+    assert Schema.__patch_request__.Config.extra == Extra.ignore
+
+    Schema(field=1, extra=2)

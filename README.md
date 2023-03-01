@@ -25,6 +25,65 @@ Automatically generate two versions of your pydantic models: one with Extra.forb
 pip install pydantic-duality
 ```
 
+## Quickstart
+
+Given the following models:
+
+```python
+
+from pydantic_duality import ConfigMixin
+
+
+class User(ConfigMixin):
+    id: UUID
+    name: str
+
+class Auth(ConfigMixin):
+    some_field: str
+    user: User
+```
+
+Using pydantic-duality is roughly equivalent to making all of the following models by hand:
+
+```python
+
+from pydantic import BaseModel
+
+# Equivalent to User and User.__request__
+class UserRequest(BaseModel, extra=Extra.forbid):
+    id: UUID
+    name: str
+
+# Equivalent to Auth and Auth.__request__
+class AuthRequest(BaseModel, extra=Extra.forbid):
+    some_field: str
+    user: UserRequest
+
+
+# Equivalent to User.__response__
+class UserResponse(BaseModel, extra=Extra.ignore):
+    id: UUID
+    name: str
+
+# Equivalent to Auth.__response__
+class AuthResponse(BaseModel, extra=Extra.ignore):
+    some_field: str
+    user: UserResponse
+
+# Equivalent to User.__patch_request__
+class UserPatchRequest(BaseModel, extra=Extra.forbid):
+    id: UUID | None
+    name: str | None
+
+# Equivalent to Auth.__patch_request__
+class AuthPatchRequest(BaseModel, extra=Extra.forbid):
+    some_field: str | None
+    user: UserPatchRequest | None
+
+```
+
+So it takes you up to 4 times less code to write the same thing. Note also that pydantic-duality does everything lazily so you will not notice any significant performance or memory usage difference when using it instead of pydantic-duality. Think of it as using all the customized models as cached properties.
+
 ## Use case
 
 ### Problem
