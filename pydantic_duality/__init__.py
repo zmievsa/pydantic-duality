@@ -175,6 +175,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
 class ConfigMixin(BaseModel, metaclass=ModelDuplicatorMeta, __config__=BaseConfig):
     __response__: ClassVar[type[Self]]
     __request__: ClassVar[type[Self]]
+    __patch_request__: ClassVar[type[Self]]
 
     def __new__(cls, *args, **kwargs) -> Self:
         return cls.__request__(*args, **kwargs)
@@ -187,6 +188,7 @@ def generate_config_mixin(base_config) -> type[ConfigMixin]:
     class ConfigMixin(BaseModel, metaclass=ModelDuplicatorMeta, __config__=base_config):
         __response__: ClassVar[type[Self]]
         __request__: ClassVar[type[Self]]
+        __patch_request__: ClassVar[type[Self]]
 
         def __new__(cls, *args, **kwargs):
             return cls.__request__(*args, **kwargs)

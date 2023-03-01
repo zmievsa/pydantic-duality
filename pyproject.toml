@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "0.4.0"
+version = "0.5.0"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/Ovsyanka83/pydantic-duality"
 readme = "README.md"
