@@ -306,8 +306,8 @@ def test_config_defined_in_kwargs():
     class Schema(ConfigMixin, extra=Extra.ignore):
         field: int
 
-    assert Schema.__request__.Config.extra == Extra.ignore
+    assert Schema.__request__.Config.extra == Extra.forbid
     assert Schema.__response__.Config.extra == Extra.ignore
-    assert Schema.__patch_request__.Config.extra == Extra.ignore
+    assert Schema.__patch_request__.Config.extra == Extra.forbid
 
     Schema(field=1, extra=2)
