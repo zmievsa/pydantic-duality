@@ -1,12 +1,13 @@
 import importlib.metadata
 import inspect
 from collections.abc import Iterable
-from dataclasses import InitVar, dataclass
 from types import GenericAlias, UnionType
-from typing import Annotated, Callable, ClassVar, Union, get_args, get_origin
+from typing import Annotated, Any, Callable, ClassVar, Union, get_args, get_origin
 
+from cached_classproperty import cached_classproperty
 from pydantic import BaseConfig, BaseModel, Extra, Field
-from pydantic.main import FieldInfo, ModelMetaclass
+from pydantic.fields import FieldInfo
+from pydantic.main import ModelMetaclass
 from typing_extensions import Self, dataclass_transform
 
 __version__ = importlib.metadata.version("pydantic_duality")
@@ -16,7 +17,7 @@ RESPONSE_ATTR = "__response__"
 PATCH_REQUEST_ATTR = "__patch_request__"
 
 
-def _resolve_annotation(annotation, attr: str):
+def _resolve_annotation(annotation, attr: str) -> Any:
     if inspect.isclass(annotation) and isinstance(annotation, ModelDuplicatorMeta):
         return getattr(annotation, attr)
     elif isinstance(annotation, GenericAlias):
@@ -56,32 +57,23 @@ def _alter_attrs(attrs: dict[str, object], name: str, attr: str):
     return attrs
 
 
-@dataclass(slots=True)
-class _LazyConstructorDescriptor:
-    own_attr_name: str
-    constructor: Callable[[], object]
-
-    def __get__(self, instance, owner) -> object:
-        result = self.constructor()
-        setattr(owner, self.own_attr_name, result)
-        return result
-
-
-def _lazy_constructor_descriptor(
-    request_cls: type, own_attr_name: str, constructor: Callable[[], object]
-) -> _LazyConstructorDescriptor:
-    def constructor_wrapper() -> object:
+def _lazily_initalize_models(request_cls: type, own_attr_name: str, constructor: Callable[[], Any]):
+    def constructor_wrapper(*a, **kw) -> object:
         obj = constructor()
         obj.__request__ = request_cls
-        obj.__response__ = _LazyConstructorDescriptor(RESPONSE_ATTR, lambda: request_cls.__response__)
-        obj.__patch_request__ = _LazyConstructorDescriptor(PATCH_REQUEST_ATTR, lambda: request_cls.__patch_request__)
+        obj.__response__ = cached_classproperty(lambda cls: request_cls.__response__, RESPONSE_ATTR)
+        obj.__patch_request__ = cached_classproperty(lambda cls: request_cls.__patch_request__, PATCH_REQUEST_ATTR)
         return obj
 
-    return _LazyConstructorDescriptor(own_attr_name, constructor_wrapper)
+    return cached_classproperty(constructor_wrapper, own_attr_name)
 
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(Field, FieldInfo))
 class ModelDuplicatorMeta(ModelMetaclass):
+    __request__: Self
+    __response__: Self
+    __patch_request__: Self
+
     def __new__(mcls, name: str, bases: tuple[type], attrs: dict[str, object], **kwargs) -> Self:
         new_class = type.__new__(mcls, name, bases, attrs)
         if not bases or not any(isinstance(b, (ModelMetaclass, ModelDuplicatorMeta)) for b in bases):
@@ -106,9 +98,9 @@ class ModelDuplicatorMeta(ModelMetaclass):
                     extra = Extra.ignore
 
             type.__setattr__(new_class, "__request__", BaseRequest)
-            BaseRequest.__request__ = BaseRequest
-            BaseRequest.__response__ = BaseResponse
-            BaseRequest.__patch_request__ = BaseRequest
+            BaseRequest.__request__ = BaseRequest  # type: ignore
+            BaseRequest.__response__ = BaseResponse  # type: ignore
+            BaseRequest.__patch_request__ = BaseRequest  # type: ignore
             return new_class
 
         request_bases = tuple(_resolve_annotation(b, REQUEST_ATTR) for b in bases)
@@ -119,7 +111,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
             _alter_attrs(attrs, f"{name}Request", REQUEST_ATTR),
             **kwargs,
         )
-        request_class.__response__ = _lazy_constructor_descriptor(
+        request_class.__response__ = _lazily_initalize_models(
             request_class,
             RESPONSE_ATTR,
             lambda: ModelMetaclass(
@@ -129,7 +121,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
                 **kwargs,
             ),
         )
-        request_class.__patch_request__ = _lazy_constructor_descriptor(
+        request_class.__patch_request__ = _lazily_initalize_models(
             request_class,
             PATCH_REQUEST_ATTR,
             lambda: ModelMetaclass(
@@ -165,7 +157,7 @@ class ModelDuplicatorMeta(ModelMetaclass):
     def __hash__(self) -> int:
         return hash(self.__request__)
 
-    def __instancecheck__(cls, instance) -> None:
+    def __instancecheck__(cls, instance) -> bool:
         return type.__instancecheck__(cls, instance) or isinstance(instance, cls.__request__)
 
     def __subclasscheck__(cls, subclass: type):
