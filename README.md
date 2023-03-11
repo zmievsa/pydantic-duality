@@ -31,14 +31,14 @@ Given the following models:
 
 ```python
 
-from pydantic_duality import ConfigMixin
+from pydantic_duality import DualBaseModel
 
 
-class User(ConfigMixin):
+class User(DualBaseModel):
     id: UUID
     name: str
 
-class Auth(ConfigMixin):
+class Auth(DualBaseModel):
     some_field: str
     user: User
 ```
@@ -147,14 +147,14 @@ When we faced this conundrum, we already had an enormous code base so the duplic
 pydantic-duality does this code duplication for you in an intuitive manner automatically. Here's how the models above would look if we used it:
 
 ```python
-from pydantic_duality import ConfigMixin
+from pydantic_duality import DualBaseModel
 
-class User(ConfigMixin):
+class User(DualBaseModel):
     id: UUID
     name: str
 
 
-class Auth(ConfigMixin):
+class Auth(DualBaseModel):
     some_field: str
     user: User
 ```
@@ -185,17 +185,17 @@ We applied the same principles to solve the problem of schemas for patching obje
 
 ### Creation
 
-Models are created in the exact same manner as pydantic models but you use our `ConfigMixin` as base instead of `BaseModel`.
+Models are created in the exact same manner as pydantic models but you use our `DualBaseModel` as base instead of `BaseModel`.
 
 ```python
-from pydantic_duality import ConfigMixin
+from pydantic_duality import DualBaseModel
 
-class User(ConfigMixin):
+class User(DualBaseModel):
     id: UUID
     name: str
 
 
-class Auth(ConfigMixin):
+class Auth(DualBaseModel):
     some_field: str
     user: User
 ```
@@ -203,7 +203,7 @@ class Auth(ConfigMixin):
 If you wish to provide your own base config for all of your models, you can do:
 
 ```python
-from pydantic_duality import generate_config_mixin
+from pydantic_duality import generate_dual_base_model
 
 # Any configuration options you like
 class MyConfig:
@@ -211,7 +211,7 @@ class MyConfig:
     ...
 
 
-ConfigMixin = generate_config_mixin(MyConfig)
+DualBaseModel = generate_dual_base_model(MyConfig)
 ```
 
 ### Parsing
@@ -222,7 +222,7 @@ Whenever you do not want to use pydantic-duality's features, you can use your mo
 
 ```python
 
-class User(ConfigMixin):
+class User(DualBaseModel):
     id: UUID
     name: str
 
@@ -239,7 +239,7 @@ If you need to use `__response__` version or both versions of your model, you ca
 
 ```python
 
-class User(ConfigMixin):
+class User(DualBaseModel):
     id: str
     name: str
 
