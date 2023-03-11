@@ -1,6 +1,11 @@
 # pydantic-duality
 
-Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional
+<p align="center">
+  <a href="https://ovsyanka83.github.io/pydantic-duality/"><img src="https://raw.githubusercontent.com/Ovsyanka83/pydantic-duality/main/docs/_media/logo_with_text.png" alt="Pydantic Duality"></a>
+</p>
+<p align="center">
+  <b>Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional</b>
+</p>
 
 ---
 
@@ -83,9 +88,9 @@ class AuthPatchRequest(BaseModel, extra=Extra.forbid):
 
 ```
 
-So it takes you up to 4 times less code to write the same thing. Note also that pydantic-duality does everything lazily so you will not notice any significant performance or memory usage difference when using it instead of pydantic-duality. Think of it as using all the customized models as cached properties.
+So it takes you up to 3 times less code to write the same thing. Note also that pydantic-duality does everything lazily so you will not notice any significant performance or memory usage difference when using it instead of writing everything by hand. Think of it as using all the customized models as cached properties.
 
-It works well and as expected with inheritance, inner models, custom configs, config kwargs, isinstance and subclass checks, and much more!
+Inheritance, inner models, custom configs, [custom names](#customizing-schema-names), config kwargs, isinstance and subclass checks work intuitively and in the same manner as they would work if you were not using pydantic-duality.
 
 ## Use case
 
