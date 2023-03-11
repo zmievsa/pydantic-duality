@@ -149,7 +149,6 @@ DualBaseModel = generate_dual_base_model(MyConfig)
 Whenever you do not want to use pydantic-duality's features, you can use your models as if they were regular pydantic models. For example:
 
 ```python
-
 class User(DualBaseModel):
     id: UUID
     name: str
@@ -166,7 +165,6 @@ This is possible because `User` is nearly equivalent to `User.__request__`. It h
 If you need to use `__response__` version or both versions of your model, you can do so through `__request__` and `__response__` attributes. They will give you an identical model with only the difference that `__request__` has Extra.forbid and `__response__` has Extra.ignore.
 
 ```python
-
 class User(DualBaseModel):
     id: str
     name: str

@@ -1,4 +1,4 @@
-<img alt="Pydantic Duality" width="420" src="_media/logo_with_text.svg?sanitize=true">
+<img alt="Pydantic Duality" width="420" src="_media/logo_with_text.png?sanitize=true">
 
 > Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional
 
