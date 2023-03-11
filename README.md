@@ -249,6 +249,30 @@ User.__response__(id="e65014c9", name="John", hello="world") # UserResponse(id="
 User.__patch_request__(id="e65014c9") # UserResponse(id="e65014c9", name=None)
 ```
 
+### Customizing schema names
+
+If you need to customize the names of your model's alternatives (`__request__`, `__response__`, etc), you can pass `request_suffix`, `response_suffix`, and/or `patch_request_suffix` during model creation:
+
+```python
+class User(DualBaseModel, request_suffix="ForbidVersion", response_suffix="IgnoreVersion"):
+    id: str
+    name: str
+
+print(User.__request__.__name__) # UserForbidVersion
+print(User.__response__.__name__) # UserIgnoreVersion
+```
+
+These attributes will also be inherited by all child models:
+
+```python
+class UserWithAge(User):
+    age: int
+
+
+print(UserWithAge.__request__.__name__) # UserWithAgeForbidVersion
+print(UserWithAge.__response__.__name__) # UserWithAgeIgnoreVersion
+```
+
 ### FastAPI integration
 
 pydantic-duality works with FastAPI out of the box. Note, however, that if you want to use Extra.ignore schemas for responses, you have to specify it explicitly with `response_model=MyModel.__response__`. Otherwise the Extra.forbid schema will be used.
