@@ -1,13 +1,3 @@
-
-<p align="center">
-  <a href="https://ovsyanka83.github.io/pydantic-duality/"><img src="https://raw.githubusercontent.com/Ovsyanka83/pydantic-duality/main/docs/_media/logo_with_text.png" alt="Pydantic Duality"></a>
-</p>
-<p align="center">
-  <b>Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional</b>
-</p>
-
----
-
 <p align="center">
 <a href="https://github.com/ovsyanka83/pydantic-duality/actions?query=workflow%3ATests+event%3Apush+branch%3Amain" target="_blank">
     <img src="https://github.com/Ovsyanka83/pydantic-duality/actions/workflows/test.yaml/badge.svg?branch=main&event=push" alt="Test">
@@ -22,6 +12,8 @@
     <img src="https://img.shields.io/pypi/pyversions/pydantic-duality?color=%2334D058" alt="Supported Python versions">
 </a>
 </p>
+
+---
 
 ## Use case
 
