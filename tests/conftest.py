@@ -1,14 +1,14 @@
 import pytest
 
-from pydantic_duality import ConfigMixin, generate_config_mixin
+from pydantic_duality import DualBaseModel, generate_dual_base_model
 
 
 @pytest.fixture(params=[True, False])
 def schemas(request):
     if request.param:
-        Base = generate_config_mixin(object)
+        Base = generate_dual_base_model(object)
     else:
-        Base = ConfigMixin
+        Base = DualBaseModel
 
     class E(Base):
         e: str

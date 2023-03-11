@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 import pytest
 from pydantic import BaseModel, Extra, Field, ValidationError
 
-from pydantic_duality import ConfigMixin, ModelDuplicatorMeta, _resolve_annotation
+from pydantic_duality import DualBaseModel, DualBaseModelMeta, _resolve_annotation
 
 
 def test_new(schemas):
@@ -25,7 +25,7 @@ def test_base_model():
     class Request(BaseModel, extra=Extra.forbid):
         r: str
 
-    class BaseModelSchema(ConfigMixin):
+    class BaseModelSchema(DualBaseModel):
         model: Request
 
     assert BaseModelSchema(model=dict(r="r")).model.r == "r"
@@ -36,7 +36,7 @@ def test_base_model():
 
 
 def test_annotationless_class():
-    class Nothing(ConfigMixin):
+    class Nothing(DualBaseModel):
         pass
 
     Nothing()
@@ -47,32 +47,65 @@ def test_annotationless_class():
 
 
 def test_dir():
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         s: str
 
     assert "parse_obj" in dir(Schema)
     assert "update_forward_refs" in dir(Schema)
 
 
-def test_lack_of_config_for_base_class():
-    with pytest.raises(TypeError):
-
-        class Schema(BaseModel, metaclass=ModelDuplicatorMeta):
-            pass
-
-
 def test_lack_of_base_class():
-    with pytest.raises(TypeError):
+    with pytest.raises(
+        TypeError,
+        match="ModelDuplicatorMeta's instances must be created with a DualBaseModel base class or a BaseModel base class.",
+    ):
 
-        class Schema(metaclass=ModelDuplicatorMeta):
+        class Schema(metaclass=DualBaseModelMeta):
             pass
 
 
 def test_invalid_base_class():
-    with pytest.raises(TypeError):
+    with pytest.raises(
+        TypeError,
+        match="ModelDuplicatorMeta's instances must be created with a DualBaseModel base class or a BaseModel base class.",
+    ):
 
-        class Schema(abc.ABC, metaclass=ModelDuplicatorMeta):
+        class Schema(abc.ABC, metaclass=DualBaseModelMeta):
             pass
+
+
+def test_lack_of_config_in_base_class():
+    with pytest.raises(
+        TypeError,
+        match="The first instance of DualBaseModelMeta must pass a __config__ argument into the __new__ method.",
+    ):
+
+        class Schema(
+            BaseModel,
+            metaclass=DualBaseModelMeta,
+            request_suffix="Request",
+            response_suffix="Response",
+            patch_request_suffix="PatchRequest",
+        ):
+            ...
+
+
+@pytest.mark.parametrize("config", ["123", {"extra": "forbid"}, None])
+def test_wrong_config_type_in_base_class(config: str | dict | None):
+    with pytest.raises(
+        TypeError,
+        match="The __config__ argument must be a class.",
+    ):
+
+        class Schema(
+            BaseModel,
+            metaclass=DualBaseModelMeta,
+            __config__=config,
+            request_suffix="Request",
+            response_suffix="Response",
+            patch_request_suffix="PatchRequest",
+        ):
+            ...
 
 
 def test_issubclass_basemodel(schemas):
@@ -82,7 +115,7 @@ def test_issubclass_basemodel(schemas):
 
 
 def test_issubclass_inner_models():
-    class SubSchema(ConfigMixin):
+    class SubSchema(DualBaseModel):
         pass
 
     assert issubclass(SubSchema.__request__, SubSchema)
@@ -97,7 +130,7 @@ def test_issubclass_inner_models():
     reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
 )
 def test_issubclass_weird_issubclass_error():
-    class SubSchema(ConfigMixin):
+    class SubSchema(DualBaseModel):
         pass
 
     # It fails in this order
@@ -109,7 +142,7 @@ def test_issubclass_weird_issubclass_error():
     reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
 )
 def test_issubclass_weird_issubclass_error2():
-    class SubSchema(ConfigMixin):
+    class SubSchema(DualBaseModel):
         pass
 
     assert not issubclass(SubSchema, SubSchema.__request__)
@@ -132,7 +165,7 @@ def test_ignore_forbid_attrs(schemas):
 
 
 def test_setattr():
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         s: str
 
     Schema.__name__ = "Hewwo"
@@ -176,15 +209,15 @@ def test_model_creation(schemas):
 
 
 def test_annotated_model_creation_with_discriminator():
-    class ChildSchema1(ConfigMixin):
+    class ChildSchema1(DualBaseModel):
         object_type: Literal[1]
         obj: str
 
-    class ChildSchema2(ConfigMixin):
+    class ChildSchema2(DualBaseModel):
         object_type: Literal[2]
         obj: str
 
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         child: Annotated[ChildSchema1 | ChildSchema2, Field(discriminator="object_type")]
 
     for object_type in (1, 2):
@@ -238,7 +271,7 @@ def test_annotated_model_creation_with_discriminator():
 
 @pytest.mark.parametrize("field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]])
 def test_annotated_model_creation_with_regular_metadata(field_type):
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         field: field_type
 
     assert Schema.__fields__["field"].annotation is field_type
@@ -247,10 +280,10 @@ def test_annotated_model_creation_with_regular_metadata(field_type):
 
 
 def test_eq():
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         field: int
 
-    class Schema2(ConfigMixin):
+    class Schema2(DualBaseModel):
         field: int
 
     assert Schema.__request__ == Schema
@@ -262,14 +295,14 @@ def test_eq():
 
 
 def test_hash():
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         field: int
 
     assert hash(Schema.__request__) == hash(Schema)
 
 
 def test_set_items():
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         field: int
 
     assert {Schema, Schema.__request__} == {Schema}
@@ -281,13 +314,13 @@ def test_set_items():
 
 def test_fastapi_weird_lack_of_qualname():
     # No error should be raised even though neither __annotations__ nor __qualname__ are present
-    type(ConfigMixin)("SomeModel", (ConfigMixin,), {})
+    type(DualBaseModel)("SomeModel", (DualBaseModel,), {})
 
 
 def test_config_defined_in_model():
     """We check that the config is possible to define and that it overrides the default config"""
 
-    class Schema(ConfigMixin):
+    class Schema(DualBaseModel):
         field: int
 
         class Config:
@@ -303,7 +336,7 @@ def test_config_defined_in_model():
 def test_config_defined_in_kwargs():
     """We check that the config is possible to define and that it overrides the default config"""
 
-    class Schema(ConfigMixin, extra=Extra.ignore):
+    class Schema(DualBaseModel, extra=Extra.ignore):
         field: int
 
     assert Schema.__request__.Config.extra == Extra.forbid
