@@ -15,9 +15,9 @@
 
 ---
 
-## Use case
+## Use cases
 
-### Problem
+### Good API design
 
 In API design, it is a good pattern to forbid any extra data from being sent to your endpoints. By default, pydantic just ignores extra data in FastAPI requests. You can fix that by passing `extra = Extra.forbid` to your model's config. However, we needed to use Extra.ignore in our response models because we might send a lot more data than required with our responses. But then we get into the following conundrum:
 
@@ -70,9 +70,7 @@ Now imagine that users also have the field named "address" that points to some `
 
 When we faced this conundrum, we already had an enormous code base so the duplication solution would be a tad too expensive.
 
-### Solution
-
-pydantic-duality does this code duplication for you in an intuitive manner automatically. Here's how the models above would look if we used it:
+Pydantic Duality does this code duplication for you in an intuitive manner automatically. Here's how the models above would look if we used it:
 
 ```python
 from pydantic_duality import DualBaseModel
@@ -105,9 +103,40 @@ Auth.__response__.parse_object(
 )
 ```
 
-### Patch requests
+### PATCH request models
 
-We applied the same principles to solve the problem of schemas for patching objects. Usually these schemas are one-to-one equivalent to regular request schemas except that all fields are nullable. If you wish to do the same thing automatically, you can use `__patch_request__` attribute similar to how you would use `__request__` and `__response__`.
+Whenever you make PATCH requests, the simplest and generally accepted API design is to have the same model as for your POST request:
+
+```python
+from pydantic import BaseModel
+
+
+class UserRequest(BaseModel, extra="forbid"):
+    name: str
+    age: int
+
+
+class UserPatchRequest(BaseModel, extra="forbid"):
+    name: str | None
+    age: int | None
+```
+
+Think what happens when you have hundreds of these models and tens of fields in each model. The burden of synchronizing patch schemas with post schemas is large, the chance of accidental mistake is high.
+
+Pydantic Duality generates such schemas for you automatically:
+
+```python
+from pydantic_duality import DualBaseModel
+
+
+class User(DualBaseModel):
+    name: str
+    age: int
+
+UserPatchRequest = User.__patch_request__
+```
+
+Thus, you get all the benefits of patch schemas without writing any of them by hand.
 
 ## Usage
 
@@ -146,7 +175,7 @@ DualBaseModel = generate_dual_base_model(MyConfig)
 
 #### Default
 
-Whenever you do not want to use pydantic-duality's features, you can use your models as if they were regular pydantic models. For example:
+Whenever you do not want to use Pydantic Duality's features, you can use your models as if they were regular pydantic models. For example:
 
 ```python
 class User(DualBaseModel):
@@ -201,11 +230,11 @@ print(UserWithAge.__response__.__name__) # UserWithAgeIgnoreVersion
 
 ### FastAPI integration
 
-pydantic-duality works with FastAPI out of the box. Note, however, that if you want to use Extra.ignore schemas for responses, you have to specify it explicitly with `response_model=MyModel.__response__`. Otherwise the Extra.forbid schema will be used.
+Pydantic Duality works with FastAPI out of the box. Note, however, that if you want to use Extra.ignore schemas for responses, you have to specify it explicitly with `response_model=MyModel.__response__`. Otherwise the Extra.forbid schema will be used.
 
 ### Configuration override
 
-If you specify extra=Extra.forbid or extra=Extra.ignore on your model explicitly, then pydantic-duality will not change its or its children's extra configuration. Nested models will still be affected as you might expect.
+If you specify extra=Extra.forbid or extra=Extra.ignore on your model explicitly, then Pydantic Duality will not change its or its children's extra configuration. Nested models will still be affected as you might expect.
 
 ### Editor support
 
