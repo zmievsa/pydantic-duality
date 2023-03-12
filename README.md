@@ -89,4 +89,8 @@ class AuthPatchRequest(BaseModel, extra=Extra.forbid):
 
 So it takes you up to 3 times less code to write the same thing. Note also that pydantic-duality does everything lazily so you will not notice any significant performance or memory usage difference when using it instead of writing everything by hand. Think of it as using all the customized models as cached properties.
 
-Inheritance, inner models, custom configs, [custom names](#customizing-schema-names), config kwargs, isinstance and subclass checks work intuitively and in the same manner as they would work if you were not using pydantic-duality.
+Inheritance, inner models, custom configs, [custom names](https://ovsyanka83.github.io/pydantic-duality/#/?id=customizing-schema-names), config kwargs, isinstance and subclass checks work intuitively and in the same manner as they would work if you were not using pydantic-duality.
+
+## Help
+
+See [documentation](https://ovsyanka83.github.io/pydantic-duality/#/) for more details
