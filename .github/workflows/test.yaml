@@ -2,9 +2,17 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths:
+      - "**.py"
+      - "**.toml"
+      - "**.lock"
   pull_request:
     branches: [main]
     types: [opened, synchronize]
+    paths:
+      - "**.py"
+      - "**.toml"
+      - "**.lock"
 
 jobs:
   Tests:
