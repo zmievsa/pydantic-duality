@@ -3,6 +3,6 @@
 > Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional
 
 [GitHub](https://github.com/ovsyanka83/pydantic-duality/)
-[Get Started](#Installation)
+[Get Started](#use-cases)
 
 ![color](#f7f7ee)
