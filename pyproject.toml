@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "1.0.0"
+version = "1.1.0"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/Ovsyanka83/pydantic-duality"
 readme = "README.md"
@@ -35,7 +35,7 @@ exclude_lines = [
 python = "^3.10"
 typing-extensions = ">=4.4.0"
 pydantic = ">=1.9.2"
-cached-classproperty = "^0.3.0"
+cached-classproperty = ">=0.1.0"
 
 [tool.poetry.dev-dependencies]
 pyupgrade = "*"
