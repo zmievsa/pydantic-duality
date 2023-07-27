@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "1.1.0"
+version = "1.1.1"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/Ovsyanka83/pydantic-duality"
 readme = "README.md"
-authors = ["Stanislav Zmiev <szmiev2000@gmail.com>"]
+authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
 
 [tool.coverage.report]
