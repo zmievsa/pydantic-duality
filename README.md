@@ -1,6 +1,6 @@
 
 <p align="center">
-  <a href="https://ovsyanka83.github.io/pydantic-duality/"><img src="https://raw.githubusercontent.com/Ovsyanka83/pydantic-duality/main/docs/_media/logo_with_text.svg" alt="Pydantic Duality"></a>
+  <a href="https://zmievsa.github.io/pydantic-duality/"><img src="https://raw.githubusercontent.com/zmievsa/pydantic-duality/main/docs/_media/logo_with_text.svg" alt="Pydantic Duality"></a>
 </p>
 <p align="center">
   <b>Automatically and lazily generate three versions of your pydantic models: one with Extra.forbid, one with Extra.ignore, and one with all fields optional</b>
@@ -12,8 +12,8 @@
 <a href="https://github.com/zmievsa/pydantic-duality/actions?query=workflow%3ATests+event%3Apush+branch%3Amain" target="_blank">
     <img src="https://github.com/zmievsa/pydantic-duality/actions/workflows/test.yaml/badge.svg?branch=main&event=push" alt="Test">
 </a>
-<a href="https://codecov.io/gh/ovsyanka83/pydantic-duality" target="_blank">
-    <img src="https://img.shields.io/codecov/c/github/ovsyanka83/pydantic-duality?color=%2334D058" alt="Coverage">
+<a href="https://codecov.io/gh/zmievsa/pydantic-duality" target="_blank">
+    <img src="https://img.shields.io/codecov/c/github/zmievsa/pydantic-duality?color=%2334D058" alt="Coverage">
 </a>
 <a href="https://pypi.org/project/pydantic-duality/" target="_blank">
     <img alt="PyPI" src="https://img.shields.io/pypi/v/pydantic-duality?color=%2334D058&label=pypi%20package" alt="Package version">
@@ -89,8 +89,8 @@ class AuthPatchRequest(BaseModel, extra=Extra.forbid):
 
 So it takes you up to 3 times less code to write the same thing. Note also that pydantic-duality does everything lazily so you will not notice any significant performance or memory usage difference when using it instead of writing everything by hand. Think of it as using all the customized models as cached properties.
 
-Inheritance, inner models, custom configs, [custom names](https://ovsyanka83.github.io/pydantic-duality/#/?id=customizing-schema-names), config kwargs, isinstance and subclass checks work intuitively and in the same manner as they would work if you were not using pydantic-duality.
+Inheritance, inner models, custom configs, [custom names](https://zmievsa.github.io/pydantic-duality/#/?id=customizing-schema-names), config kwargs, isinstance and subclass checks work intuitively and in the same manner as they would work if you were not using pydantic-duality.
 
 ## Help
 
-See [documentation](https://ovsyanka83.github.io/pydantic-duality/#/) for more details
+See [documentation](https://zmievsa.github.io/pydantic-duality/#/) for more details

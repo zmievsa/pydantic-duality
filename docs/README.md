@@ -2,8 +2,8 @@
 <a href="https://github.com/zmievsa/pydantic-duality/actions?query=workflow%3ATests+event%3Apush+branch%3Amain" target="_blank">
     <img src="https://github.com/zmievsa/pydantic-duality/actions/workflows/test.yaml/badge.svg?branch=main&event=push" alt="Test">
 </a>
-<a href="https://codecov.io/gh/ovsyanka83/pydantic-duality" target="_blank">
-    <img src="https://img.shields.io/codecov/c/github/ovsyanka83/pydantic-duality?color=%2334D058" alt="Coverage">
+<a href="https://codecov.io/gh/zmievsa/pydantic-duality" target="_blank">
+    <img src="https://img.shields.io/codecov/c/github/zmievsa/pydantic-duality?color=%2334D058" alt="Coverage">
 </a>
 <a href="https://pypi.org/project/pydantic-duality/" target="_blank">
     <img alt="PyPI" src="https://img.shields.io/pypi/v/pydantic-duality?color=%2334D058&label=pypi%20package" alt="Package version">
