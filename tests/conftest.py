@@ -1,3 +1,4 @@
+from pydantic import ConfigDict, Field
 import pytest
 
 from pydantic_duality import DualBaseModel, generate_dual_base_model
@@ -6,7 +7,7 @@ from pydantic_duality import DualBaseModel, generate_dual_base_model
 @pytest.fixture(params=[True, False])
 def schemas(request):
     if request.param:
-        Base = generate_dual_base_model(object)
+        Base = generate_dual_base_model(ConfigDict())
     else:
         Base = DualBaseModel
 
@@ -22,7 +23,7 @@ def schemas(request):
     class B(Base):
         my: str
         old: list[C]
-        right: "str | None"
+        right: "str | None" = Field(default=None)
 
     class G(Base):
         g: str

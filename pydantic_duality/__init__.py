@@ -15,9 +15,10 @@ from typing import (
 )
 
 from cached_classproperty import cached_classproperty
-from pydantic import BaseConfig, BaseModel, Extra, Field
+from pydantic import BaseModel, Extra, Field
+from pydantic import ConfigDict
 from pydantic.fields import FieldInfo
-from pydantic.main import ModelMetaclass
+from pydantic._internal._model_construction import ModelMetaclass
 from typing_extensions import Self, dataclass_transform
 
 __version__ = importlib.metadata.version("pydantic_duality")
@@ -106,8 +107,8 @@ class DualBaseModelMeta(ModelMetaclass):
                 raise TypeError(
                     f"The first instance of {cls.__name__} must pass a __config__ argument into the __new__ method."
                 )
-            elif not inspect.isclass(kwargs["__config__"]):
-                raise TypeError("The __config__ argument must be a class.")
+            elif not isinstance(kwargs["__config__"], dict):
+                raise TypeError("The __config__ argument must be a dict.")
             elif request_suffix is None or response_suffix is None or patch_request_suffix is None:
                 raise TypeError(
                     "The first instance of DualBaseModel must pass suffixes for the request, response, and patch request models."
@@ -130,15 +131,13 @@ class DualBaseModelMeta(ModelMetaclass):
         return new_class
 
     def _generate_base_alternative_classes(self, request_suffix, response_suffix, kwargs):
-        class Config(kwargs["__config__"]):  # type: ignore
-            extra = Extra.forbid
+        model_config = kwargs["__config__"] | ConfigDict(extra=Extra.forbid)
 
-        BaseRequest = ModelMetaclass(f"Base{request_suffix}", (BaseModel,), {"Config": Config})
+        BaseRequest = ModelMetaclass(f"Base{request_suffix}", (BaseModel,), {"model_config": model_config})
 
-        class Config(kwargs["__config__"]):
-            extra = Extra.ignore
+        model_config = kwargs["__config__"] | ConfigDict(extra=Extra.ignore)
 
-        BaseResponse = ModelMetaclass(f"Base{response_suffix}", (BaseModel,), {"Config": Config})
+        BaseResponse = ModelMetaclass(f"Base{response_suffix}", (BaseModel,), {"model_config": model_config})
 
         type.__setattr__(self, "__request__", BaseRequest)
         BaseRequest.__request__ = BaseRequest  # type: ignore
@@ -209,11 +208,14 @@ class DualBaseModelMeta(ModelMetaclass):
 
 
 def generate_dual_base_model(
-    base_config: type | Mapping = BaseConfig,
+    base_config: type | Mapping | None = None,
     response_suffix="Response",
     request_suffix="Request",
     patch_request_suffix="PatchRequest",
 ) -> "type[DualBaseModel]":
+    if base_config is None:
+        base_config = ConfigDict()
+
     class DualBaseModel(
         BaseModel,
         metaclass=DualBaseModelMeta,

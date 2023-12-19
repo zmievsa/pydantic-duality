@@ -103,5 +103,5 @@ def test_lack_of_suffix_for_base_class(overrides: dict[str, str]):
         match="The first instance of DualBaseModel must pass suffixes for the request, response, and patch request models.",
     ):
 
-        class Schema(BaseModel, metaclass=DualBaseModelMeta, __config__=DualBaseModel.__config__, **overrides):
+        class Schema(BaseModel, metaclass=DualBaseModelMeta, __config__=DualBaseModel.model_config, **overrides):
             pass
