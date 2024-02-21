@@ -1,4 +1,3 @@
-
 <p align="center">
   <a href="https://zmievsa.github.io/pydantic-duality/"><img src="https://raw.githubusercontent.com/zmievsa/pydantic-duality/main/docs/_media/logo_with_text.svg" alt="Pydantic Duality"></a>
 </p>

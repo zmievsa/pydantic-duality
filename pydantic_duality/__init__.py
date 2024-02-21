@@ -1,25 +1,38 @@
+import copy
 import importlib.metadata
 import inspect
 from collections.abc import Iterable
 from types import GenericAlias, UnionType
 from typing import (
-    TYPE_CHECKING,
-    Annotated,
     Any,
     Callable,
     ClassVar,
     Mapping,
     Union,
+    _BaseGenericAlias,  # pyright: ignore[reportAttributeAccessIssue]
     get_args,
     get_origin,
 )
 
+import pydantic
 from cached_classproperty import cached_classproperty
-from pydantic import BaseModel, Extra, Field
-from pydantic import ConfigDict
-from pydantic.fields import FieldInfo
+from pydantic import BaseModel, ConfigDict, Extra, Field
 from pydantic._internal._model_construction import ModelMetaclass
-from typing_extensions import Self, dataclass_transform
+from pydantic.fields import FieldInfo
+from typing_extensions import (
+    TYPE_CHECKING,
+    Annotated,
+    Literal,
+    Self,
+    dataclass_transform,
+)
+
+GenericAliasUnion = _BaseGenericAlias | GenericAlias
+
+if pydantic.__version__ < "2.0.0":
+    from pydantic import Undefined as PydanticUndefined
+else:
+    from pydantic_core import PydanticUndefined as PydanticUndefined
 
 __version__ = importlib.metadata.version("pydantic_duality")
 
@@ -28,16 +41,31 @@ RESPONSE_ATTR = "__response__"
 PATCH_REQUEST_ATTR = "__patch_request__"
 
 
+def _replace_with_or_none(val: FieldInfo | Any) -> FieldInfo | Any:
+    if isinstance(val, FieldInfo) and val.default is PydanticUndefined:
+        val = copy.deepcopy(val)
+        val.default = None
+    else:
+        return val
+
+
 def _resolve_annotation(annotation, attr: str) -> Any:
     if inspect.isclass(annotation) and isinstance(annotation, DualBaseModelMeta):
         return getattr(annotation, attr)
-    elif isinstance(annotation, GenericAlias):
+    elif isinstance(annotation, GenericAliasUnion):
+        # TODO
+        # # We wouldn't be able to modify Literals anyway because they only include the most basic
+        # # data types
+        # if get_origin(annotation) is Literal:
+        #     return annotation
         return GenericAlias(
             get_origin(annotation),
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
     elif isinstance(annotation, UnionType):
-        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
+        return Union.__getitem__(
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation))
+        )
     elif get_origin(annotation) is Annotated:
         return Annotated.__class_getitem__(
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
@@ -59,21 +87,35 @@ def _alter_attrs(attrs: dict[str, object], name: str, attr: str):
             if attr == PATCH_REQUEST_ATTR:
                 if get_origin(annotations[key]) is Annotated:
                     args = get_args(annotations[key])
-                    annotations[key] = Annotated.__class_getitem__(tuple([args[0] | None, *args[1:]]))
+                    annotations[key] = Annotated.__class_getitem__(
+                        tuple([args[0] | None, *args[1:]])
+                    )
                 elif isinstance(annotations[key], str):
                     annotations[key] += " | None"
-                else:
+
+                # Literals should not be affected because this would break discriminators in pydanticV2
+                elif not (
+                    isinstance(annotations[key], GenericAliasUnion)
+                    and get_origin(annotations[key]) is Literal
+                ):
                     annotations[key] = annotations[key] | None
         attrs["__annotations__"] = annotations
+
     return attrs
 
 
-def _lazily_initalize_models(request_cls: type, own_attr_name: str, constructor: Callable[[], Any]):
+def _lazily_initalize_models(
+    request_cls: type, own_attr_name: str, constructor: Callable[[], Any]
+):
     def constructor_wrapper(*a, **kw) -> object:
         obj = constructor()
         obj.__request__ = request_cls
-        obj.__response__ = cached_classproperty(lambda cls: request_cls.__response__, RESPONSE_ATTR)
-        obj.__patch_request__ = cached_classproperty(lambda cls: request_cls.__patch_request__, PATCH_REQUEST_ATTR)
+        obj.__response__ = cached_classproperty(
+            lambda cls: request_cls.__response__, RESPONSE_ATTR
+        )
+        obj.__patch_request__ = cached_classproperty(
+            lambda cls: request_cls.__patch_request__, PATCH_REQUEST_ATTR
+        )
         return obj
 
     return cached_classproperty(constructor_wrapper, own_attr_name)
@@ -97,7 +139,9 @@ class DualBaseModelMeta(ModelMetaclass):
         **kwargs,
     ) -> Self:
         new_class = type.__new__(cls, name, bases, attrs)
-        if not bases or not any(isinstance(b, (ModelMetaclass, DualBaseModelMeta)) for b in bases):
+        if not bases or not any(
+            isinstance(b, (ModelMetaclass, DualBaseModelMeta)) for b in bases
+        ):
             raise TypeError(
                 f"ModelDuplicatorMeta's instances must be created with a DualBaseModel base class or a BaseModel base class."
             )
@@ -109,11 +153,17 @@ class DualBaseModelMeta(ModelMetaclass):
                 )
             elif not isinstance(kwargs["__config__"], dict):
                 raise TypeError("The __config__ argument must be a dict.")
-            elif request_suffix is None or response_suffix is None or patch_request_suffix is None:
+            elif (
+                request_suffix is None
+                or response_suffix is None
+                or patch_request_suffix is None
+            ):
                 raise TypeError(
                     "The first instance of DualBaseModel must pass suffixes for the request, response, and patch request models."
                 )
-            new_class._generate_base_alternative_classes(request_suffix, response_suffix, kwargs)
+            new_class._generate_base_alternative_classes(
+                request_suffix, response_suffix, kwargs
+            )
         else:
             request_suffix, response_suffix, patch_request_suffix = (
                 request_suffix or new_class.request_suffix,
@@ -121,7 +171,13 @@ class DualBaseModelMeta(ModelMetaclass):
                 patch_request_suffix or new_class.patch_request_suffix,
             )
             new_class._generate_alternative_classes(
-                name, bases, attrs, request_suffix, response_suffix, patch_request_suffix, kwargs
+                name,
+                bases,
+                attrs,
+                request_suffix,
+                response_suffix,
+                patch_request_suffix,
+                kwargs,
             )
 
         new_class.__request__.request_suffix = request_suffix  # type: ignore
@@ -130,14 +186,20 @@ class DualBaseModelMeta(ModelMetaclass):
 
         return new_class
 
-    def _generate_base_alternative_classes(self, request_suffix, response_suffix, kwargs):
+    def _generate_base_alternative_classes(
+        self, request_suffix, response_suffix, kwargs
+    ):
         model_config = kwargs["__config__"] | ConfigDict(extra=Extra.forbid)
 
-        BaseRequest = ModelMetaclass(f"Base{request_suffix}", (BaseModel,), {"model_config": model_config})
+        BaseRequest = ModelMetaclass(
+            f"Base{request_suffix}", (BaseModel,), {"model_config": model_config}
+        )
 
         model_config = kwargs["__config__"] | ConfigDict(extra=Extra.ignore)
 
-        BaseResponse = ModelMetaclass(f"Base{response_suffix}", (BaseModel,), {"model_config": model_config})
+        BaseResponse = ModelMetaclass(
+            f"Base{response_suffix}", (BaseModel,), {"model_config": model_config}
+        )
 
         type.__setattr__(self, "__request__", BaseRequest)
         BaseRequest.__request__ = BaseRequest  # type: ignore
@@ -145,14 +207,25 @@ class DualBaseModelMeta(ModelMetaclass):
         BaseRequest.__patch_request__ = BaseRequest  # type: ignore
 
     def _generate_alternative_classes(
-        self, name, bases, attrs, request_suffix, response_suffix, patch_request_suffix, kwargs
+        self,
+        name,
+        bases,
+        attrs,
+        request_suffix,
+        response_suffix,
+        patch_request_suffix,
+        kwargs,
     ):
         request_bases = tuple(_resolve_annotation(b, REQUEST_ATTR) for b in bases)
+
+        request_kwargs = kwargs.copy()
+        if "extra" in request_kwargs:
+            request_kwargs["extra"] = Extra.forbid
         request_class = ModelMetaclass(
             name + request_suffix,
             request_bases,
             _alter_attrs(attrs, name + request_suffix, REQUEST_ATTR),
-            **kwargs,
+            **request_kwargs,
         )
         request_class.__response__ = _lazily_initalize_models(
             request_class,
@@ -164,14 +237,27 @@ class DualBaseModelMeta(ModelMetaclass):
                 **kwargs,
             ),
         )
+        patch_attrs: dict[str, Any] = {
+            key: _replace_with_or_none(val) if key in request_class.__fields__ else val
+            for key, val in attrs.items()
+        }
+        if "__annotations__" in attrs and isinstance(attrs["__annotations__"], dict):
+            patch_attrs |= {
+                key: None
+                for key in attrs["__annotations__"]
+                if key not in patch_attrs and key in request_class.__fields__
+            }
+
         request_class.__patch_request__ = _lazily_initalize_models(
             request_class,
             PATCH_REQUEST_ATTR,
             lambda: ModelMetaclass(
                 name + patch_request_suffix,
                 tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
-                _alter_attrs(attrs, name + patch_request_suffix, PATCH_REQUEST_ATTR),
-                **kwargs,
+                _alter_attrs(
+                    patch_attrs, name + patch_request_suffix, PATCH_REQUEST_ATTR
+                ),
+                **request_kwargs,
             ),
         )
 
@@ -181,7 +267,12 @@ class DualBaseModelMeta(ModelMetaclass):
 
     def __getattribute__(self, attr: str):
         # Note here that RESPONSE_ATTR and PATCH_REQUEST_ATTR goes into REQUEST_ATTR's __getattribute__ method
-        if attr in {REQUEST_ATTR, "__new__", "_generate_base_alternative_classes", "_generate_alternative_classes"}:
+        if attr in {
+            REQUEST_ATTR,
+            "__new__",
+            "_generate_base_alternative_classes",
+            "_generate_alternative_classes",
+        }:
             return type.__getattribute__(self, attr)
         return getattr(type.__getattribute__(self, REQUEST_ATTR), attr)
 
@@ -201,10 +292,14 @@ class DualBaseModelMeta(ModelMetaclass):
         return hash(self.__request__)
 
     def __instancecheck__(cls, instance) -> bool:
-        return type.__instancecheck__(cls, instance) or isinstance(instance, cls.__request__)
+        return type.__instancecheck__(cls, instance) or isinstance(
+            instance, cls.__request__
+        )
 
     def __subclasscheck__(cls, subclass: type):
-        return type.__subclasscheck__(cls, subclass) or issubclass(subclass, cls.__request__)
+        return type.__subclasscheck__(cls, subclass) or issubclass(
+            subclass, cls.__request__
+        )
 
 
 def generate_dual_base_model(
