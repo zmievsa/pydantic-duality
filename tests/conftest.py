@@ -1,3 +1,5 @@
+import sys
+from typing import List, Optional
 import pytest
 
 from pydantic_duality import DualBaseModel, generate_dual_base_model
@@ -19,19 +21,29 @@ def schemas(request):
     class C(D, E):
         friend: str
 
-    class B(Base):
-        my: str
-        old: list[C]
-        right: "str | None"
-
     class G(Base):
         g: str
 
     class H(Base):
         h: str
 
-    class A(Base):
-        hello: str
-        darkness: B
+    if sys.version_info >= (3, 10):
+        class B(Base):
+            my: str
+            old: list[C]
+            right: "str | None"
+
+        class A(Base):
+            hello: str
+            darkness: B
+    else:
+        class B(Base):
+            my: str
+            old: List[C]
+            right: Optional["str"]
+
+        class A(Base):
+            hello: str
+            darkness: B
 
     return locals()
