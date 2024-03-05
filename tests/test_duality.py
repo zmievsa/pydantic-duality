@@ -151,15 +151,21 @@ def test_issubclass_weird_issubclass_error2():
 
 def test_ignore_forbid_attrs(schemas):
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__request__.Config.extra
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__patch_request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__patch_request__.Config.extra
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__response__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__response__.Config.extra
         == Extra.ignore
     )
 
@@ -218,16 +224,33 @@ def test_annotated_model_creation_with_discriminator():
         obj: str
 
     class Schema(DualBaseModel):
-        child: Annotated[ChildSchema1 | ChildSchema2, Field(discriminator="object_type")]
+        child: Annotated[
+            ChildSchema1 | ChildSchema2, Field(discriminator="object_type")
+        ]
 
     for object_type in (1, 2):
-        child_schema = Schema.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_req_schema = Schema.__request__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_resp_schema = Schema.__response__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
+        child_schema = Schema.parse_obj(
+            {"child": {"object_type": object_type, "obj": object_type}}
+        )
+        child_req_schema = Schema.__request__.parse_obj(
+            {"child": {"object_type": object_type, "obj": object_type}}
+        )
+        child_resp_schema = Schema.__response__.parse_obj(
+            {"child": {"object_type": object_type, "obj": object_type}}
+        )
 
-        assert type(child_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_req_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_resp_schema.child) is locals()[f"ChildSchema{object_type}"].__response__
+        assert (
+            type(child_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_req_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_resp_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__response__
+        )
         with pytest.raises(ValidationError):
             Schema.parse_obj(
                 {
@@ -269,7 +292,9 @@ def test_annotated_model_creation_with_discriminator():
         )
 
 
-@pytest.mark.parametrize("field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]])
+@pytest.mark.parametrize(
+    "field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]]
+)
 def test_annotated_model_creation_with_regular_metadata(field_type):
     class Schema(DualBaseModel):
         field: field_type
@@ -344,3 +369,33 @@ def test_config_defined_in_kwargs():
     assert Schema.__patch_request__.Config.extra == Extra.forbid
 
     Schema(field=1, extra=2)
+
+
+def test_model_can_be_created_with_super_init_in_init():
+    class MyModel(DualBaseModel):
+        one: str
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+
+def test_model_can_be_created_with_init_subclass():
+    class MyModel(DualBaseModel):
+        one: str
+
+        def __init_subclass__(cls, **kwargs):
+            super().__init_subclass__(**kwargs)
+
+    class MyModelChild(MyModel):
+        pass
+
+
+def test_model_can_be_created_with_classmethod():
+    class MyModel(DualBaseModel):
+        one: str
+
+        @classmethod
+        def get_stuff(cls):
+            return super().parse_obj
+
+    MyModel.get_stuff()
