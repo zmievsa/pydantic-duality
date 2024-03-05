@@ -1,8 +1,8 @@
 import abc
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 import pytest
-from pydantic import BaseModel, Extra, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Extra, Field, ValidationError
 
 from pydantic_duality import DualBaseModel, DualBaseModelMeta, _resolve_annotation
 
@@ -90,11 +90,11 @@ def test_lack_of_config_in_base_class():
             ...
 
 
-@pytest.mark.parametrize("config", ["123", {"extra": "forbid"}, None])
-def test_wrong_config_type_in_base_class(config: str | dict | None):
+@pytest.mark.parametrize("config", ["123", object, None])
+def test_wrong_config_type_in_base_class(config: str | object | None):
     with pytest.raises(
         TypeError,
-        match="The __config__ argument must be a class.",
+        match="The __config__ argument must be a dict.",
     ):
 
         class Schema(
@@ -151,15 +151,27 @@ def test_issubclass_weird_issubclass_error2():
 
 def test_ignore_forbid_attrs(schemas):
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__request__.model_config[
+            "extra"
+        ]
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__patch_request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__patch_request__.model_config[
+            "extra"
+        ]
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__response__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__response__.model_config[
+            "extra"
+        ]
         == Extra.ignore
     )
 
@@ -179,7 +191,7 @@ def test_resolving(schemas):
     )
 
 
-def test_model_creation(schemas):
+def test_response_model_creation(schemas):
     schemas["A"].__response__.parse_obj(
         {
             "hello": "world",
@@ -189,6 +201,9 @@ def test_model_creation(schemas):
             },
         }
     )
+
+
+def test_patch_request_model_creation(schemas):
     schemas["A"].__patch_request__.parse_obj(
         {
             "darkness": {
@@ -196,6 +211,9 @@ def test_model_creation(schemas):
             },
         }
     )
+
+
+def test_default_model_creation_with_extra__should_use_request_and_fail(schemas):
     with pytest.raises(ValidationError):
         schemas["A"].parse_obj(
             {
@@ -218,16 +236,33 @@ def test_annotated_model_creation_with_discriminator():
         obj: str
 
     class Schema(DualBaseModel):
-        child: Annotated[ChildSchema1 | ChildSchema2, Field(discriminator="object_type")]
+        child: Annotated[
+            ChildSchema1 | ChildSchema2, Field(discriminator="object_type")
+        ]
 
     for object_type in (1, 2):
-        child_schema = Schema.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_req_schema = Schema.__request__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_resp_schema = Schema.__response__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
+        child_schema = Schema.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
+        child_req_schema = Schema.__request__.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
+        child_resp_schema = Schema.__response__.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
 
-        assert type(child_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_req_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_resp_schema.child) is locals()[f"ChildSchema{object_type}"].__response__
+        assert (
+            type(child_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_req_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_resp_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__response__
+        )
         with pytest.raises(ValidationError):
             Schema.parse_obj(
                 {
@@ -248,6 +283,7 @@ def test_annotated_model_creation_with_discriminator():
                     }
                 }
             )
+        # TODO: Add matches clause to all validation errors
         with pytest.raises(ValidationError):
             Schema.__patch_request__.parse_obj(
                 {
@@ -262,21 +298,25 @@ def test_annotated_model_creation_with_discriminator():
             {
                 "child": {
                     "object_type": object_type,
-                    "obj": object_type,
+                    "obj": str(object_type),
                     "extra": "extra",
                 }
             }
         )
 
 
-@pytest.mark.parametrize("field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]])
+@pytest.mark.parametrize(
+    "field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]]
+)
 def test_annotated_model_creation_with_regular_metadata(field_type):
     class Schema(DualBaseModel):
         field: field_type
 
-    assert Schema.__fields__["field"].annotation is field_type
-    assert Schema.__request__.__fields__["field"].annotation is field_type
-    assert Schema.__response__.__fields__["field"].annotation is field_type
+    assert get_args(Schema.__annotations__["field"]) == get_args(field_type)
+    assert get_args(Schema.__request__.__annotations__["field"]) == get_args(field_type)
+    assert get_args(Schema.__response__.__annotations__["field"]) == get_args(
+        field_type
+    )
 
 
 def test_eq():
@@ -323,12 +363,11 @@ def test_config_defined_in_model():
     class Schema(DualBaseModel):
         field: int
 
-        class Config:
-            extra = Extra.ignore
+        model_config = ConfigDict(extra=Extra.ignore)
 
-    assert Schema.__request__.Config.extra == Extra.ignore
-    assert Schema.__response__.Config.extra == Extra.ignore
-    assert Schema.__patch_request__.Config.extra == Extra.ignore
+    assert Schema.__request__.model_config["extra"] == Extra.forbid
+    assert Schema.__response__.model_config["extra"] == Extra.ignore
+    assert Schema.__patch_request__.model_config["extra"] == Extra.forbid
 
     Schema(field=1, extra=2)
 
@@ -339,8 +378,9 @@ def test_config_defined_in_kwargs():
     class Schema(DualBaseModel, extra=Extra.ignore):
         field: int
 
-    assert Schema.__request__.Config.extra == Extra.forbid
-    assert Schema.__response__.Config.extra == Extra.ignore
-    assert Schema.__patch_request__.Config.extra == Extra.forbid
+    assert Schema.__request__.model_config["extra"] == Extra.forbid
+    assert Schema.__response__.model_config["extra"] == Extra.ignore
+    assert Schema.__patch_request__.model_config["extra"] == Extra.forbid
 
     Schema(field=1, extra=2)
+    Schema.__request__(field=1, extra=2)
