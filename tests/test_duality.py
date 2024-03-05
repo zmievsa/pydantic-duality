@@ -365,9 +365,9 @@ def test_config_defined_in_model():
 
         model_config = ConfigDict(extra=Extra.ignore)
 
-    assert Schema.__request__.model_config["extra"] == Extra.ignore
+    assert Schema.__request__.model_config["extra"] == Extra.forbid
     assert Schema.__response__.model_config["extra"] == Extra.ignore
-    assert Schema.__patch_request__.model_config["extra"] == Extra.ignore
+    assert Schema.__patch_request__.model_config["extra"] == Extra.forbid
 
     Schema(field=1, extra=2)
 

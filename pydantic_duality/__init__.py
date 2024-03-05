@@ -138,7 +138,6 @@ class DualBaseModelMeta(ModelMetaclass):
         patch_request_suffix: str | None = None,
         **kwargs,
     ) -> Self:
-        new_class = type.__new__(cls, name, bases, attrs)
         if not bases or not any(
             isinstance(b, (ModelMetaclass, DualBaseModelMeta)) for b in bases
         ):
@@ -147,6 +146,8 @@ class DualBaseModelMeta(ModelMetaclass):
             )
         # DualBaseModel case
         elif bases == (BaseModel,):
+            breakpoint()
+            new_class = type.__new__(cls, name, bases, attrs)
             if "__config__" not in kwargs:
                 raise TypeError(
                     f"The first instance of {cls.__name__} must pass a __config__ argument into the __new__ method."
@@ -165,6 +166,8 @@ class DualBaseModelMeta(ModelMetaclass):
                 request_suffix, response_suffix, kwargs
             )
         else:
+            breakpoint()
+            new_class = type.__new__(cls, name, bases, attrs, **kwargs)
             request_suffix, response_suffix, patch_request_suffix = (
                 request_suffix or new_class.request_suffix,
                 response_suffix or new_class.response_suffix,
@@ -328,7 +331,10 @@ def generate_dual_base_model(
         patch_request_suffix: ClassVar[str]
 
         def __new__(cls, *args, **kwargs):
-            return cls.__request__(*args, **kwargs)
+            if cls.model_config.get("extra") is Extra.forbid:
+                return cls.__request__(*args, **kwargs)
+            else:
+                return cls.__response__(*args, **kwargs)
 
         def __init_subclass__(cls, **kwargs) -> None:
             return object.__init_subclass__()
