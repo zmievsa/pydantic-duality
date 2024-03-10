@@ -1,11 +1,12 @@
 import abc
-from typing import Annotated, Literal
+import sys
+from typing import Literal, Union
 
 import pytest
 from pydantic import BaseModel, Extra, Field, ValidationError
 
 from pydantic_duality import DualBaseModel, DualBaseModelMeta, _resolve_annotation
-
+from typing_extensions import Annotated
 
 def test_new(schemas):
     assert schemas["H"](h="h").h == "h"
@@ -13,12 +14,23 @@ def test_new(schemas):
 
 def test_union(schemas):
     class UnionSchema(schemas["Base"]):
-        model: schemas["G"] | schemas["H"]
+        model: Union[schemas["G"], schemas["H"]]
 
     g = UnionSchema(model=dict(g="g")).model
     h = UnionSchema.__request__(model=dict(h="h")).model
     assert g.g == "g"
     assert h.h == "h"
+
+
+if sys.version_info >= (3, 10):
+    def test_union_operator(schemas):
+        class UnionSchema(schemas["Base"]):
+            model: schemas["G"] | schemas["H"]
+
+        g = UnionSchema(model=dict(g="g")).model
+        h = UnionSchema.__request__(model=dict(h="h")).model
+        assert g.g == "g"
+        assert h.h == "h"
 
 
 def test_base_model():
@@ -91,7 +103,7 @@ def test_lack_of_config_in_base_class():
 
 
 @pytest.mark.parametrize("config", ["123", {"extra": "forbid"}, None])
-def test_wrong_config_type_in_base_class(config: str | dict | None):
+def test_wrong_config_type_in_base_class(config: Union[str, dict, None]):
     with pytest.raises(
         TypeError,
         match="The __config__ argument must be a class.",
@@ -174,9 +186,17 @@ def test_setattr():
 
 def test_resolving(schemas):
     _resolve_annotation(
-        Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")],
+        Annotated[Union[schemas["A"], schemas["B"]], Field(discriminator="object_type")],
         "__request__",
     )
+
+
+if sys.version_info >= (3, 10):
+    def test_resolving_union_operator(schemas):
+        _resolve_annotation(
+            Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")],
+            "__request__",
+        )
 
 
 def test_model_creation(schemas):
@@ -218,7 +238,7 @@ def test_annotated_model_creation_with_discriminator():
         obj: str
 
     class Schema(DualBaseModel):
-        child: Annotated[ChildSchema1 | ChildSchema2, Field(discriminator="object_type")]
+        child: Annotated[Union[ChildSchema1, ChildSchema2], Field(discriminator="object_type")]
 
     for object_type in (1, 2):
         child_schema = Schema.parse_obj({"child": {"object_type": object_type, "obj": object_type}})

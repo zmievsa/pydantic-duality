@@ -1,3 +1,4 @@
+from typing import Dict
 import pytest
 from pydantic import BaseModel
 
@@ -40,7 +41,7 @@ def test_inheritance():
 
 
 @overrides
-def test_name_overrides(overrides: dict[str, str]):
+def test_name_overrides(overrides: Dict[str, str]):
     class Schema(DualBaseModel, **overrides):
         pass
 
@@ -53,7 +54,7 @@ def test_name_overrides(overrides: dict[str, str]):
 
 
 @overrides
-def test_name_overrides_level1_inheritance(overrides: dict[str, str]):
+def test_name_overrides_level1_inheritance(overrides: Dict[str, str]):
     class Schema(DualBaseModel, **overrides):
         pass
 
@@ -69,7 +70,7 @@ def test_name_overrides_level1_inheritance(overrides: dict[str, str]):
 
 
 @overrides
-def test_name_overrides_level2_inheritance(overrides: dict[str, str]):
+def test_name_overrides_level2_inheritance(overrides: Dict[str, str]):
     class Schema(DualBaseModel):
         pass
 
@@ -95,7 +96,7 @@ def test_name_overrides_level2_inheritance(overrides: dict[str, str]):
 
 
 @overrides
-def test_lack_of_suffix_for_base_class(overrides: dict[str, str]):
+def test_lack_of_suffix_for_base_class(overrides: Dict[str, str]):
     if "request_suffix" in overrides and "response_suffix" in overrides and "patch_request_suffix" in overrides:
         return
     with pytest.raises(

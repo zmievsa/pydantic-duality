@@ -1,14 +1,16 @@
 import importlib.metadata
 import inspect
-from collections.abc import Iterable
-from types import GenericAlias, UnionType
+import sys
 from typing import (
     TYPE_CHECKING,
-    Annotated,
     Any,
     Callable,
     ClassVar,
+    Dict,
+    List,
     Mapping,
+    Optional,
+    Tuple,
     Union,
     get_args,
     get_origin,
@@ -18,7 +20,12 @@ from cached_classproperty import cached_classproperty
 from pydantic import BaseConfig, BaseModel, Extra, Field
 from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import _AnnotatedAlias, Self, dataclass_transform, Annotated, Iterable
+from typing import Type
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
+
 
 __version__ = importlib.metadata.version("pydantic_duality")
 
@@ -30,24 +37,33 @@ PATCH_REQUEST_ATTR = "__patch_request__"
 def _resolve_annotation(annotation, attr: str) -> Any:
     if inspect.isclass(annotation) and isinstance(annotation, DualBaseModelMeta):
         return getattr(annotation, attr)
-    elif isinstance(annotation, GenericAlias):
-        return GenericAlias(
-            get_origin(annotation),
-            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
-        )
-    elif isinstance(annotation, UnionType):
-        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
-    elif get_origin(annotation) is Annotated:
+    if get_origin(annotation) is Annotated:
         return Annotated.__class_getitem__(
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
-    elif inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+    # For Python 3.8, get_origin(Annotated[T, ...]) is T and not Annotated,
+    # so we check against _AnnotatedAlias.
+    if isinstance(annotation, _AnnotatedAlias):
+        args = [get_origin(annotation), *annotation.__metadata__]
+        return Annotated.__class_getitem__(
+            tuple(_resolve_annotation(a, attr) for a in args),
+        )
+    if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
-    else:
-        return annotation
+    if sys.version_info >= (3, 9):
+        if isinstance(annotation, GenericAlias):
+            return GenericAlias(
+                get_origin(annotation),
+                tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
+            )
+    if get_origin(annotation) is Union:
+        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
+    if get_origin(annotation) is list:
+        return List.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
+    return annotation
 
 
-def _alter_attrs(attrs: dict[str, object], name: str, attr: str):
+def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
     attrs = attrs.copy()
     if "__qualname__" in attrs:
         attrs["__qualname__"] = name
@@ -58,11 +74,11 @@ def _alter_attrs(attrs: dict[str, object], name: str, attr: str):
             if attr == PATCH_REQUEST_ATTR:
                 if get_origin(annotations[key]) is Annotated:
                     args = get_args(annotations[key])
-                    annotations[key] = Annotated.__class_getitem__(tuple([args[0] | None, *args[1:]]))
+                    annotations[key] = Annotated.__class_getitem__(tuple([Optional[args[0]], *args[1:]]))
                 elif isinstance(annotations[key], str):
-                    annotations[key] += " | None"
+                    annotations[key] = f"Optional[{annotations[key]}]"
                 else:
-                    annotations[key] = annotations[key] | None
+                    annotations[key] = Optional[annotations[key]]
         attrs["__annotations__"] = annotations
     return attrs
 
@@ -87,12 +103,12 @@ class DualBaseModelMeta(ModelMetaclass):
     def __new__(
         cls,
         name: str,
-        bases: tuple[type],
-        attrs: dict[str, object],
+        bases: Tuple[type],
+        attrs: Dict[str, object],
         *,
-        request_suffix: str | None = None,
-        response_suffix: str | None = None,
-        patch_request_suffix: str | None = None,
+        request_suffix: Optional[str] = None,
+        response_suffix: Optional[str] = None,
+        patch_request_suffix: Optional[str] = None,
         **kwargs,
     ) -> Self:
         new_class = type.__new__(cls, name, bases, attrs)
@@ -190,7 +206,7 @@ class DualBaseModelMeta(ModelMetaclass):
         return setattr(type.__getattribute__(self, REQUEST_ATTR), attr, value)
 
     def __dir__(self) -> Iterable[str]:
-        return set(super().__dir__()) | set(dir(getattr(self, REQUEST_ATTR)))
+        return set(super().__dir__()).union(set(dir(getattr(self, REQUEST_ATTR))))
 
     def __eq__(self, __o: object) -> bool:
         if isinstance(__o, DualBaseModelMeta):
@@ -209,11 +225,11 @@ class DualBaseModelMeta(ModelMetaclass):
 
 
 def generate_dual_base_model(
-    base_config: type | Mapping = BaseConfig,
+    base_config: Union[type, Mapping] = BaseConfig,
     response_suffix="Response",
     request_suffix="Request",
     patch_request_suffix="PatchRequest",
-) -> "type[DualBaseModel]":
+) -> "Type[DualBaseModel]":
     class DualBaseModel(
         BaseModel,
         metaclass=DualBaseModelMeta,
@@ -222,9 +238,9 @@ def generate_dual_base_model(
         response_suffix=response_suffix,
         patch_request_suffix=patch_request_suffix,
     ):
-        __response__: ClassVar[type[Self]]
-        __request__: ClassVar[type[Self]]
-        __patch_request__: ClassVar[type[Self]]
+        __response__: ClassVar[Type[Self]]
+        __request__: ClassVar[Type[Self]]
+        __patch_request__: ClassVar[Type[Self]]
 
         request_suffix: ClassVar[str]
         response_sufx: ClassVar[str]
@@ -242,9 +258,9 @@ def generate_dual_base_model(
 if TYPE_CHECKING:
 
     class DualBaseModel(BaseModel, metaclass=DualBaseModelMeta, __config__=BaseConfig):
-        __request__: ClassVar[type[Self]]
-        __response__: ClassVar[type[Self]]
-        __patch_request__: ClassVar[type[Self]]
+        __request__: ClassVar[Type[Self]]
+        __response__: ClassVar[Type[Self]]
+        __patch_request__: ClassVar[Type[Self]]
 
         request_suffix: ClassVar[str]
         response_sufx: ClassVar[str]
