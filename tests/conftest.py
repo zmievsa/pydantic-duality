@@ -1,5 +1,6 @@
 import sys
 from typing import List, Optional
+
 import pytest
 
 from pydantic_duality import DualBaseModel, generate_dual_base_model
@@ -28,6 +29,7 @@ def schemas(request):
         h: str
 
     if sys.version_info >= (3, 10):
+
         class B(Base):
             my: str
             old: list[C]
@@ -36,7 +38,9 @@ def schemas(request):
         class A(Base):
             hello: str
             darkness: B
+
     else:
+
         class B(Base):
             my: str
             old: List[C]

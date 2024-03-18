@@ -7,11 +7,13 @@ readme = "README.md"
 authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
 
+[tool.coverage.run]
+data_file = "coverage/coverage"
+
 [tool.coverage.report]
 fail_under = 100
 skip_covered = true
 skip_empty = true
-omit = ["tests/*"]
 # Taken from https://coverage.readthedocs.io/en/7.1.0/excluding.html#advanced-exclusion
 exclude_lines = [
     "pragma: no cover",
@@ -38,29 +40,9 @@ pydantic = "^1.9.2"
 cached-classproperty = ">=0.1.0"
 
 [tool.poetry.dev-dependencies]
-pyupgrade = "*"
-black = "*"
-autoflake = "*"
+ruff = "*"
 pytest = ">=7.2.1"
 pytest-cov = ">=4.0.0"
-isort = "*"
-
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-skip_glob = ['.venv/*', "_compat/*"]
-
-[tool.black]
-line-length = 120
-target-version = ["py310"]
-
-[tool.bandit]
-exclude_dirs = ["/venv", "/tests", "/_compat"]
-skips = ["B104"]
-
-[tool.deptry]
-extend_exclude = ["settings/config.py"]
 
 
 [build-system]
