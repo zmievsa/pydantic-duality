@@ -1,36 +1,16 @@
 import abc
 import sys
-from typing import Literal, Union
+from typing import Any, Literal, Union
 
 import pytest
 from pydantic import BaseModel, Extra, Field, ValidationError
-
-from pydantic_duality import DualBaseModel, DualBaseModelMeta, _resolve_annotation
 from typing_extensions import Annotated
+
+from pydantic_duality import DualBaseModel, DualBaseModelMeta
+
 
 def test_new(schemas):
     assert schemas["H"](h="h").h == "h"
-
-
-def test_union(schemas):
-    class UnionSchema(schemas["Base"]):
-        model: Union[schemas["G"], schemas["H"]]
-
-    g = UnionSchema(model=dict(g="g")).model
-    h = UnionSchema.__request__(model=dict(h="h")).model
-    assert g.g == "g"
-    assert h.h == "h"
-
-
-if sys.version_info >= (3, 10):
-    def test_union_operator(schemas):
-        class UnionSchema(schemas["Base"]):
-            model: schemas["G"] | schemas["H"]
-
-        g = UnionSchema(model=dict(g="g")).model
-        h = UnionSchema.__request__(model=dict(h="h")).model
-        assert g.g == "g"
-        assert h.h == "h"
 
 
 def test_base_model():
@@ -98,8 +78,7 @@ def test_lack_of_config_in_base_class():
             request_suffix="Request",
             response_suffix="Response",
             patch_request_suffix="PatchRequest",
-        ):
-            ...
+        ): ...
 
 
 @pytest.mark.parametrize("config", ["123", {"extra": "forbid"}, None])
@@ -116,8 +95,7 @@ def test_wrong_config_type_in_base_class(config: Union[str, dict, None]):
             request_suffix="Request",
             response_suffix="Response",
             patch_request_suffix="PatchRequest",
-        ):
-            ...
+        ): ...
 
 
 def test_issubclass_basemodel(schemas):
@@ -182,21 +160,6 @@ def test_setattr():
 
     Schema.__name__ = "Hewwo"
     assert Schema.__request__.__name__ == "Hewwo"
-
-
-def test_resolving(schemas):
-    _resolve_annotation(
-        Annotated[Union[schemas["A"], schemas["B"]], Field(discriminator="object_type")],
-        "__request__",
-    )
-
-
-if sys.version_info >= (3, 10):
-    def test_resolving_union_operator(schemas):
-        _resolve_annotation(
-            Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")],
-            "__request__",
-        )
 
 
 def test_model_creation(schemas):

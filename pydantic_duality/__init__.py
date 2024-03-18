@@ -1,17 +1,19 @@
 import importlib.metadata
 import inspect
 import sys
+from collections.abc import Iterable
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
     Dict,
-    List,
     Mapping,
     Optional,
     Tuple,
+    Type,
     Union,
+    _BaseGenericAlias,  # pyright: ignore[reportAttributeAccessIssue]
     get_args,
     get_origin,
 )
@@ -20,12 +22,14 @@ from cached_classproperty import cached_classproperty
 from pydantic import BaseConfig, BaseModel, Extra, Field
 from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass
-from typing_extensions import _AnnotatedAlias, Self, dataclass_transform, Annotated, Iterable
-from typing import Type
+from typing_extensions import Annotated, Self, _AnnotatedAlias, dataclass_transform
 
 if sys.version_info >= (3, 9):
     from types import GenericAlias
 
+    GenericAliasUnion = GenericAlias | _BaseGenericAlias
+else:
+    GenericAliasUnion = _BaseGenericAlias
 
 __version__ = importlib.metadata.version("pydantic_duality")
 
@@ -34,7 +38,7 @@ RESPONSE_ATTR = "__response__"
 PATCH_REQUEST_ATTR = "__patch_request__"
 
 
-def _resolve_annotation(annotation, attr: str) -> Any:
+def _resolve_annotation(annotation: Any, attr: str) -> Any:
     if inspect.isclass(annotation) and isinstance(annotation, DualBaseModelMeta):
         return getattr(annotation, attr)
     if get_origin(annotation) is Annotated:
@@ -50,16 +54,11 @@ def _resolve_annotation(annotation, attr: str) -> Any:
         )
     if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
-    if sys.version_info >= (3, 9):
-        if isinstance(annotation, GenericAlias):
-            return GenericAlias(
-                get_origin(annotation),
-                tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
-            )
-    if get_origin(annotation) is Union:
-        return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
-    if get_origin(annotation) is list:
-        return List.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
+    if isinstance(annotation, GenericAliasUnion):
+        return GenericAlias(
+            get_origin(annotation),
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
+        )
     return annotation
 
 
@@ -74,7 +73,7 @@ def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
             if attr == PATCH_REQUEST_ATTR:
                 if get_origin(annotations[key]) is Annotated:
                     args = get_args(annotations[key])
-                    annotations[key] = Annotated.__class_getitem__(tuple([Optional[args[0]], *args[1:]]))
+                    annotations[key] = Annotated.__class_getitem__((Optional[args[0]], *args[1:]))
                 elif isinstance(annotations[key], str):
                     annotations[key] = f"Optional[{annotations[key]}]"
                 else:
@@ -84,11 +83,11 @@ def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
 
 
 def _lazily_initalize_models(request_cls: type, own_attr_name: str, constructor: Callable[[], Any]):
-    def constructor_wrapper(*a, **kw) -> object:
+    def constructor_wrapper(*_: Any, **__: Any) -> object:
         obj = constructor()
         obj.__request__ = request_cls
-        obj.__response__ = cached_classproperty(lambda cls: request_cls.__response__, RESPONSE_ATTR)
-        obj.__patch_request__ = cached_classproperty(lambda cls: request_cls.__patch_request__, PATCH_REQUEST_ATTR)
+        obj.__response__ = cached_classproperty(lambda _: request_cls.__response__, RESPONSE_ATTR)
+        obj.__patch_request__ = cached_classproperty(lambda _: request_cls.__patch_request__, PATCH_REQUEST_ATTR)
         return obj
 
     return cached_classproperty(constructor_wrapper, own_attr_name)
@@ -109,12 +108,13 @@ class DualBaseModelMeta(ModelMetaclass):
         request_suffix: Optional[str] = None,
         response_suffix: Optional[str] = None,
         patch_request_suffix: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Self:
         new_class = type.__new__(cls, name, bases, attrs)
         if not bases or not any(isinstance(b, (ModelMetaclass, DualBaseModelMeta)) for b in bases):
             raise TypeError(
-                f"ModelDuplicatorMeta's instances must be created with a DualBaseModel base class or a BaseModel base class."
+                "ModelDuplicatorMeta's instances must be created with a DualBaseModel base class "
+                "or a BaseModel base class."
             )
         # DualBaseModel case
         elif bases == (BaseModel,):
@@ -126,7 +126,8 @@ class DualBaseModelMeta(ModelMetaclass):
                 raise TypeError("The __config__ argument must be a class.")
             elif request_suffix is None or response_suffix is None or patch_request_suffix is None:
                 raise TypeError(
-                    "The first instance of DualBaseModel must pass suffixes for the request, response, and patch request models."
+                    "The first instance of DualBaseModel must pass suffixes for the "
+                    "request, response, and patch request models."
                 )
             new_class._generate_base_alternative_classes(request_suffix, response_suffix, kwargs)
         else:
@@ -145,7 +146,7 @@ class DualBaseModelMeta(ModelMetaclass):
 
         return new_class
 
-    def _generate_base_alternative_classes(self, request_suffix, response_suffix, kwargs):
+    def _generate_base_alternative_classes(self, request_suffix: str, response_suffix: str, kwargs: Dict[str, Any]):
         class Config(kwargs["__config__"]):  # type: ignore
             extra = Extra.forbid
 
@@ -162,7 +163,14 @@ class DualBaseModelMeta(ModelMetaclass):
         BaseRequest.__patch_request__ = BaseRequest  # type: ignore
 
     def _generate_alternative_classes(
-        self, name, bases, attrs, request_suffix, response_suffix, patch_request_suffix, kwargs
+        self,
+        name: str,
+        bases: Tuple[type, ...],
+        attrs: Dict[str, object],
+        request_suffix: str,
+        response_suffix: str,
+        patch_request_suffix: str,
+        kwargs: Dict[str, object],
     ):
         request_bases = tuple(_resolve_annotation(b, REQUEST_ATTR) for b in bases)
         request_class = ModelMetaclass(
