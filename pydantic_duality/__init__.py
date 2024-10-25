@@ -22,9 +22,12 @@ from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass
 from typing_extensions import _AnnotatedAlias, Self, dataclass_transform, Annotated, Iterable
 from typing import Type
+from types import GenericAlias
 
-if sys.version_info >= (3, 9):
-    from types import GenericAlias
+if sys.version_info > (3, 13):
+    annotated_class_getitem = Annotated.__getitem__
+else:
+    annotated_class_getitem = Annotated.__class_getitem__
 
 
 __version__ = importlib.metadata.version("pydantic_duality")
@@ -38,24 +41,23 @@ def _resolve_annotation(annotation, attr: str) -> Any:
     if inspect.isclass(annotation) and isinstance(annotation, DualBaseModelMeta):
         return getattr(annotation, attr)
     if get_origin(annotation) is Annotated:
-        return Annotated.__class_getitem__(
+        return annotated_class_getitem(
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
     # For Python 3.8, get_origin(Annotated[T, ...]) is T and not Annotated,
     # so we check against _AnnotatedAlias.
     if isinstance(annotation, _AnnotatedAlias):
         args = [get_origin(annotation), *annotation.__metadata__]
-        return Annotated.__class_getitem__(
+        return annotated_class_getitem(
             tuple(_resolve_annotation(a, attr) for a in args),
         )
-    if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+    if type(annotation) != GenericAlias and inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
-    if sys.version_info >= (3, 9):
-        if isinstance(annotation, GenericAlias):
-            return GenericAlias(
-                get_origin(annotation),
-                tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
-            )
+    if isinstance(annotation, GenericAlias):
+        return GenericAlias(
+            get_origin(annotation),
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
+        )
     if get_origin(annotation) is Union:
         return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
     if get_origin(annotation) is list:
@@ -74,7 +76,7 @@ def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
             if attr == PATCH_REQUEST_ATTR:
                 if get_origin(annotations[key]) is Annotated:
                     args = get_args(annotations[key])
-                    annotations[key] = Annotated.__class_getitem__(tuple([Optional[args[0]], *args[1:]]))
+                    annotations[key] = annotated_class_getitem(tuple([Optional[args[0]], *args[1:]]))
                 elif isinstance(annotations[key], str):
                     annotations[key] = f"Optional[{annotations[key]}]"
                 else:
