@@ -22,7 +22,9 @@ from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass
 from typing_extensions import _AnnotatedAlias, Self, dataclass_transform, Annotated, Iterable
 from typing import Type
-from types import GenericAlias
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
 
 if sys.version_info > (3, 13):
     annotated_class_getitem = Annotated.__getitem__
@@ -51,13 +53,14 @@ def _resolve_annotation(annotation, attr: str) -> Any:
         return annotated_class_getitem(
             tuple(_resolve_annotation(a, attr) for a in args),
         )
-    if type(annotation) != GenericAlias and inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+    if sys.version_info >= (3, 9):
+        if isinstance(annotation, GenericAlias):
+            return GenericAlias(
+                get_origin(annotation),
+                tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
+            )
+    if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
-    if isinstance(annotation, GenericAlias):
-        return GenericAlias(
-            get_origin(annotation),
-            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
-        )
     if get_origin(annotation) is Union:
         return Union.__getitem__(tuple(_resolve_annotation(a, attr) for a in get_args(annotation)))
     if get_origin(annotation) is list:

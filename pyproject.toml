@@ -31,7 +31,7 @@ exclude_lines = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 typing-extensions = ">=4.8.0"
 pydantic = "^1.9.2"
 cached-classproperty = ">=0.1.0"
