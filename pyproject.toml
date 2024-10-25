@@ -7,6 +7,11 @@ readme = "README.md"
 authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
 
+[tool.coverage.run]
+data_file = "coverage/coverage"
+parallel = true
+branch = true
+
 [tool.coverage.report]
 fail_under = 90
 skip_covered = true
@@ -29,6 +34,7 @@ exclude_lines = [
     "__rich_repr__",
     "__repr__",
 ]
+
 
 [tool.poetry.dependencies]
 python = "^3.9"
