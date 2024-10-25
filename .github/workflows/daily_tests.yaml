@@ -9,10 +9,16 @@ jobs:
   update-dependencies-and-test:
     name: Update dependencies and run tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-python-poetry
+        with:
+          python-version: ${{ matrix.python-version }}
       - run: poetry update
       - run: poetry run pytest .
 

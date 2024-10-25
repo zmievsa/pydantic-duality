@@ -20,11 +20,10 @@ from cached_classproperty import cached_classproperty
 from pydantic import BaseConfig, BaseModel, Extra, Field
 from pydantic.fields import FieldInfo
 from pydantic.main import ModelMetaclass
-from typing_extensions import _AnnotatedAlias, Self, dataclass_transform, Annotated, Iterable
+from typing_extensions import Self, dataclass_transform, Annotated, Iterable
 from typing import Type
+from types import GenericAlias
 
-if sys.version_info >= (3, 9):
-    from types import GenericAlias
 
 if sys.version_info > (3, 13):
     annotated_class_getitem = Annotated.__getitem__
@@ -46,19 +45,12 @@ def _resolve_annotation(annotation, attr: str) -> Any:
         return annotated_class_getitem(
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
-    # For Python 3.8, get_origin(Annotated[T, ...]) is T and not Annotated,
-    # so we check against _AnnotatedAlias.
-    if isinstance(annotation, _AnnotatedAlias):
-        args = [get_origin(annotation), *annotation.__metadata__]
-        return annotated_class_getitem(
-            tuple(_resolve_annotation(a, attr) for a in args),
+
+    if isinstance(annotation, GenericAlias):
+        return GenericAlias(
+            get_origin(annotation),
+            tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
-    if sys.version_info >= (3, 9):
-        if isinstance(annotation, GenericAlias):
-            return GenericAlias(
-                get_origin(annotation),
-                tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
-            )
     if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
         return annotation
     if get_origin(annotation) is Union:
