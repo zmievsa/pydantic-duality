@@ -69,4 +69,4 @@ jobs:
         env:
           fail_ci_if_error: true
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - run: coverage report --fail-under=100
+      - run: coverage report --show-missing --fail-under=100
