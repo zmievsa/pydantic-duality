@@ -18,7 +18,7 @@ on:
 jobs:
   Tests:
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
           - os: ubuntu-latest
@@ -35,7 +35,6 @@ jobs:
             python-version: "3.11"
           - os: macos-latest
             python-version: "3.11"
-        poetry-version: ["1.2.2"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
