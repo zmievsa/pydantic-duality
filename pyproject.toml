@@ -7,6 +7,9 @@ readme = "README.md"
 authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
 
+[tool.poetry.group.dev.dependencies]
+pdbpp = "^0.10.3"
+
 [tool.coverage.run]
 data_file = "coverage/coverage"
 parallel = true
