@@ -62,6 +62,7 @@ def _resolve_annotation(annotation, attr: str) -> Any:
 
 def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
     attrs = attrs.copy()
+
     if "__qualname__" in attrs:
         attrs["__qualname__"] = name
     if "__annotations__" in attrs and isinstance(attrs["__annotations__"], dict):
@@ -98,7 +99,7 @@ class DualBaseModelMeta(ModelMetaclass):
     __patch_request__: Self
 
     def __new__(
-        cls,
+        self,
         name: str,
         bases: Tuple[type],
         attrs: Dict[str, object],
@@ -108,7 +109,7 @@ class DualBaseModelMeta(ModelMetaclass):
         patch_request_suffix: Optional[str] = None,
         **kwargs,
     ) -> Self:
-        new_class = type.__new__(cls, name, bases, attrs)
+        new_class = type.__new__(self, name, bases, attrs)
         if not bases or not any(isinstance(b, (ModelMetaclass, DualBaseModelMeta)) for b in bases):
             raise TypeError(
                 f"ModelDuplicatorMeta's instances must be created with a DualBaseModel base class or a BaseModel base class."
@@ -117,7 +118,7 @@ class DualBaseModelMeta(ModelMetaclass):
         elif bases == (BaseModel,):
             if "__config__" not in kwargs:
                 raise TypeError(
-                    f"The first instance of {cls.__name__} must pass a __config__ argument into the __new__ method."
+                    f"The first instance of {self.__name__} must pass a __config__ argument into the __new__ method."
                 )
             elif not inspect.isclass(kwargs["__config__"]):
                 raise TypeError("The __config__ argument must be a class.")
@@ -188,9 +189,7 @@ class DualBaseModelMeta(ModelMetaclass):
                 **kwargs,
             ),
         )
-
         type.__setattr__(self, REQUEST_ATTR, request_class)
-
         return request_class
 
     def __getattribute__(self, attr: str):
@@ -215,10 +214,10 @@ class DualBaseModelMeta(ModelMetaclass):
         return hash(self.__request__)
 
     def __instancecheck__(cls, instance) -> bool:
-        return type.__instancecheck__(cls, instance) or isinstance(instance, cls.__request__)
+        return type.__instancecheck__(cls, instance) or isinstance(instance, (cls.__request__, cls.__response__, cls.__patch_request__))
 
     def __subclasscheck__(cls, subclass: type):
-        return type.__subclasscheck__(cls, subclass) or issubclass(subclass, cls.__request__)
+        return type.__subclasscheck__(cls, subclass) or issubclass(subclass, (cls.__request__, cls.__response__, cls.__patch_request__))
 
 
 def generate_dual_base_model(

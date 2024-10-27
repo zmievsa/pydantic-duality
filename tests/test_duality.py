@@ -126,34 +126,96 @@ def test_issubclass_basemodel(schemas):
     assert issubclass(schemas["A"].__response__, BaseModel)
 
 
-def test_issubclass_inner_models():
-    class SubSchema(DualBaseModel):
+def test_isinstance_checks():
+    class MyModel(DualBaseModel):
+        one: str
+    
+    class MyModelChild(MyModel):
+        two: str
+
+    my_model = MyModel.__response__.parse_obj({"one": "two", "two": "three"})
+
+    assert isinstance(my_model, MyModel)
+    assert isinstance(my_model, MyModel.__response__)
+    
+    my_model_child = MyModelChild.__response__.parse_obj({"one": "two", "two": "three"})
+
+    assert isinstance(my_model_child, MyModel)
+    assert isinstance(my_model_child, MyModel.__response__)
+    assert isinstance(my_model_child, MyModelChild)
+    assert isinstance(my_model_child, MyModelChild.__response__)
+
+def test_main_schema_is_subclass_of_generated_schemas():
+    class Schema(DualBaseModel):
+        pass
+    
+    assert not issubclass(Schema, Schema.__request__)
+    assert not issubclass(Schema, Schema.__response__)
+    assert not issubclass(Schema, Schema.__patch_request__)
+
+
+def test_generated_schemas_is_subclass_of_main_schema():
+    class Schema(DualBaseModel):
+        pass
+    
+    assert issubclass(Schema.__request__, Schema)
+    assert issubclass(Schema.__response__, Schema)
+    assert issubclass(Schema.__patch_request__, Schema)
+
+def test__generated_schemas_is_subclass_of_generated_schemas():
+    class Schema(DualBaseModel):
+        pass
+    
+    assert issubclass(Schema.__request__, Schema.__request__)
+    assert issubclass(Schema.__response__, Schema.__response__)
+    assert issubclass(Schema.__patch_request__, Schema.__patch_request__)
+
+    assert not issubclass(Schema.__request__, Schema.__response__)
+    assert not issubclass(Schema.__request__, Schema.__patch_request__)
+    assert not issubclass(Schema.__response__, Schema.__request__)
+    assert not issubclass(Schema.__response__, Schema.__patch_request__)
+    assert not issubclass(Schema.__patch_request__, Schema.__request__)
+    assert not issubclass(Schema.__patch_request__, Schema.__response__)
+
+def test_arbitrary_schema_is_subclass_of_main_and_generated_schemas():
+    class Schema(DualBaseModel):
+        pass
+    
+    class ArbitrarySchema(BaseModel):
         pass
 
-    assert issubclass(SubSchema.__request__, SubSchema)
-    assert not issubclass(SubSchema.__response__, SubSchema)
-    assert not issubclass(SubSchema, SubSchema.__response__)
-    # assert not issubclass(SubSchema, SubSchema.__request__)  # See test_issubclass_weird_issubclass_error for more details
-    assert not issubclass(SubSchema.__response__, SubSchema.__request__)
-    assert not issubclass(SubSchema.__request__, SubSchema.__response__)
 
+    assert not issubclass(Schema, ArbitrarySchema)
+    assert not issubclass(ArbitrarySchema, Schema)
+    assert not issubclass(ArbitrarySchema, Schema.__request__)
+    assert not issubclass(ArbitrarySchema, Schema.__response__)
+    
 
 @pytest.mark.xfail(
-    reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
+    reason=(
+        "Seems like an optimization in pydantic/pytest/CPython. "
+        "This happens because Model.__request__.__hash__ is the same as Model.__hash__. "
+        "This was a bad idea and we should fix it someday: Model should not be the same as Model.__request__"
+    )
 )
 def test_issubclass_weird_issubclass_error():
     class SubSchema(DualBaseModel):
         pass
 
-    # It fails in this order
+    # It only fails if we check things in this order
     assert issubclass(SubSchema.__request__, SubSchema)
     assert not issubclass(SubSchema, SubSchema.__request__)  # fails here
 
 
+
 @pytest.mark.xfail(
-    reason="Either I did something incorrectly or there's a bug in pydantic/pytest/CPython. Feels like caching"
+    reason=(
+        "Seems like an optimization in pydantic/pytest/CPython. "
+        "This happens because Model.__request__.__hash__ is the same as Model.__hash__. "
+        "This was a bad idea and we should fix it someday: Model should not be the same as Model.__request__"
+    )
 )
-def test_issubclass_weird_issubclass_error2():
+def test_issubclass_weird_issubclass_error_in_reverse():
     class SubSchema(DualBaseModel):
         pass
 
@@ -364,3 +426,4 @@ def test_config_defined_in_kwargs():
     assert Schema.__patch_request__.Config.extra == Extra.forbid
 
     Schema(field=1, extra=2)
+

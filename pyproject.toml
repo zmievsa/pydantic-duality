@@ -1,11 +1,14 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "1.2.2"
+version = "1.2.3"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/zmievsa/pydantic-duality"
 readme = "README.md"
 authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
+
+[tool.poetry.group.dev.dependencies]
+pdbpp = "^0.10.3"
 
 [tool.coverage.run]
 data_file = "coverage/coverage"
