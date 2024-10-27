@@ -433,7 +433,6 @@ def test_super_calls_in_init():
         field: int
         
         def __init__(self, *args, **kwargs):
-            breakpoint()
             super().__init__(*args, **kwargs)
             self.field = self.field + 1
     
