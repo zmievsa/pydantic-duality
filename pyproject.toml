@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "1.2.3"
+version = "1.2.4"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/zmievsa/pydantic-duality"
 readme = "README.md"
@@ -19,6 +19,7 @@ branch = true
 fail_under = 90
 skip_covered = true
 skip_empty = true
+omit = ["tests/*"]
 # Taken from https://coverage.readthedocs.io/en/7.1.0/excluding.html#advanced-exclusion
 exclude_lines = [
     "pragma: no cover",
