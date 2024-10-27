@@ -427,3 +427,16 @@ def test_config_defined_in_kwargs():
 
     Schema(field=1, extra=2)
 
+@pytest.mark.xfail("Super calls are not supported yet")
+def test_super_calls_in_init():
+    class Schema(DualBaseModel):
+        field: int
+        
+        def __init__(self, *args, **kwargs):
+            breakpoint()
+            super().__init__(*args, **kwargs)
+            self.field = self.field + 1
+    
+    assert Schema.__request__(field=1).field == 2
+    assert Schema.__response__(field=1).field == 2
+    assert Schema.__patch_request__(field=1).field == 2
