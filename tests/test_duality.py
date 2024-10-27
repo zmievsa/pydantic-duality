@@ -2,11 +2,13 @@ import abc
 import sys
 from typing import Literal, Union
 
+import pydantic
 import pytest
-from pydantic import BaseModel, Extra, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Extra, Field, ValidationError
+from typing_extensions import Annotated
 
 from pydantic_duality import DualBaseModel, DualBaseModelMeta, _resolve_annotation
-from typing_extensions import Annotated
+
 
 def test_new(schemas):
     assert schemas["H"](h="h").h == "h"
@@ -23,6 +25,7 @@ def test_union(schemas):
 
 
 if sys.version_info >= (3, 10):
+
     def test_union_operator(schemas):
         class UnionSchema(schemas["Base"]):
             model: schemas["G"] | schemas["H"]
@@ -89,7 +92,7 @@ def test_invalid_base_class():
 def test_lack_of_config_in_base_class():
     with pytest.raises(
         TypeError,
-        match="The first instance of DualBaseModelMeta must pass a __config__ argument into the __new__ method.",
+        match="The first instance of DualBaseModelMeta must have a model_config attribute.",
     ):
 
         class Schema(
@@ -98,26 +101,24 @@ def test_lack_of_config_in_base_class():
             request_suffix="Request",
             response_suffix="Response",
             patch_request_suffix="PatchRequest",
-        ):
-            ...
+        ): ...
 
 
-@pytest.mark.parametrize("config", ["123", {"extra": "forbid"}, None])
-def test_wrong_config_type_in_base_class(config: Union[str, dict, None]):
+@pytest.mark.parametrize("config", ["123", 13, None])
+def test_wrong_config_type_in_base_class(config: Union[str, int, None]):
     with pytest.raises(
         TypeError,
-        match="The __config__ argument must be a class.",
+        match="The model_config attribute must be a dictionary.",
     ):
 
         class Schema(
             BaseModel,
             metaclass=DualBaseModelMeta,
-            __config__=config,
             request_suffix="Request",
             response_suffix="Response",
             patch_request_suffix="PatchRequest",
         ):
-            ...
+            model_config = config
 
 
 def test_issubclass_basemodel(schemas):
@@ -129,7 +130,7 @@ def test_issubclass_basemodel(schemas):
 def test_isinstance_checks():
     class MyModel(DualBaseModel):
         one: str
-    
+
     class MyModelChild(MyModel):
         two: str
 
@@ -137,7 +138,7 @@ def test_isinstance_checks():
 
     assert isinstance(my_model, MyModel)
     assert isinstance(my_model, MyModel.__response__)
-    
+
     my_model_child = MyModelChild.__response__.parse_obj({"one": "two", "two": "three"})
 
     assert isinstance(my_model_child, MyModel)
@@ -145,10 +146,11 @@ def test_isinstance_checks():
     assert isinstance(my_model_child, MyModelChild)
     assert isinstance(my_model_child, MyModelChild.__response__)
 
+
 def test_main_schema_is_subclass_of_generated_schemas():
     class Schema(DualBaseModel):
         pass
-    
+
     assert not issubclass(Schema, Schema.__request__)
     assert not issubclass(Schema, Schema.__response__)
     assert not issubclass(Schema, Schema.__patch_request__)
@@ -157,15 +159,16 @@ def test_main_schema_is_subclass_of_generated_schemas():
 def test_generated_schemas_is_subclass_of_main_schema():
     class Schema(DualBaseModel):
         pass
-    
+
     assert issubclass(Schema.__request__, Schema)
     assert issubclass(Schema.__response__, Schema)
     assert issubclass(Schema.__patch_request__, Schema)
 
+
 def test__generated_schemas_is_subclass_of_generated_schemas():
     class Schema(DualBaseModel):
         pass
-    
+
     assert issubclass(Schema.__request__, Schema.__request__)
     assert issubclass(Schema.__response__, Schema.__response__)
     assert issubclass(Schema.__patch_request__, Schema.__patch_request__)
@@ -177,19 +180,19 @@ def test__generated_schemas_is_subclass_of_generated_schemas():
     assert not issubclass(Schema.__patch_request__, Schema.__request__)
     assert not issubclass(Schema.__patch_request__, Schema.__response__)
 
+
 def test_arbitrary_schema_is_subclass_of_main_and_generated_schemas():
     class Schema(DualBaseModel):
         pass
-    
+
     class ArbitrarySchema(BaseModel):
         pass
-
 
     assert not issubclass(Schema, ArbitrarySchema)
     assert not issubclass(ArbitrarySchema, Schema)
     assert not issubclass(ArbitrarySchema, Schema.__request__)
     assert not issubclass(ArbitrarySchema, Schema.__response__)
-    
+
 
 @pytest.mark.xfail(
     reason=(
@@ -205,7 +208,6 @@ def test_issubclass_weird_issubclass_error():
     # It only fails if we check things in this order
     assert issubclass(SubSchema.__request__, SubSchema)
     assert not issubclass(SubSchema, SubSchema.__request__)  # fails here
-
 
 
 @pytest.mark.xfail(
@@ -225,15 +227,27 @@ def test_issubclass_weird_issubclass_error_in_reverse():
 
 def test_ignore_forbid_attrs(schemas):
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__request__.model_config[
+            "extra"
+        ]
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__patch_request__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__patch_request__.model_config[
+            "extra"
+        ]
         == Extra.forbid
     )
     assert (
-        schemas["A"].__request__.__response__.__response__.__request__.__response__.__response__.Config.extra
+        schemas[
+            "A"
+        ].__request__.__response__.__response__.__request__.__response__.__response__.model_config[
+            "extra"
+        ]
         == Extra.ignore
     )
 
@@ -248,12 +262,15 @@ def test_setattr():
 
 def test_resolving(schemas):
     _resolve_annotation(
-        Annotated[Union[schemas["A"], schemas["B"]], Field(discriminator="object_type")],
+        Annotated[
+            Union[schemas["A"], schemas["B"]], Field(discriminator="object_type")
+        ],
         "__request__",
     )
 
 
 if sys.version_info >= (3, 10):
+
     def test_resolving_union_operator(schemas):
         _resolve_annotation(
             Annotated[schemas["A"] | schemas["B"], Field(discriminator="object_type")],
@@ -300,16 +317,33 @@ def test_annotated_model_creation_with_discriminator():
         obj: str
 
     class Schema(DualBaseModel):
-        child: Annotated[Union[ChildSchema1, ChildSchema2], Field(discriminator="object_type")]
+        child: Annotated[
+            Union[ChildSchema1, ChildSchema2], Field(discriminator="object_type")
+        ]
 
     for object_type in (1, 2):
-        child_schema = Schema.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_req_schema = Schema.__request__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
-        child_resp_schema = Schema.__response__.parse_obj({"child": {"object_type": object_type, "obj": object_type}})
+        child_schema = Schema.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
+        child_req_schema = Schema.__request__.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
+        child_resp_schema = Schema.__response__.parse_obj(
+            {"child": {"object_type": object_type, "obj": str(object_type)}}
+        )
 
-        assert type(child_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_req_schema.child) is locals()[f"ChildSchema{object_type}"].__request__
-        assert type(child_resp_schema.child) is locals()[f"ChildSchema{object_type}"].__response__
+        assert (
+            type(child_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_req_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__request__
+        )
+        assert (
+            type(child_resp_schema.child)
+            is locals()[f"ChildSchema{object_type}"].__response__
+        )
         with pytest.raises(ValidationError):
             Schema.parse_obj(
                 {
@@ -330,7 +364,7 @@ def test_annotated_model_creation_with_discriminator():
                     }
                 }
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(pydantic.ValidationError):
             Schema.__patch_request__.parse_obj(
                 {
                     "child": {
@@ -344,21 +378,33 @@ def test_annotated_model_creation_with_discriminator():
             {
                 "child": {
                     "object_type": object_type,
-                    "obj": object_type,
+                    "obj": str(object_type),
                     "extra": "extra",
                 }
             }
         )
 
 
-@pytest.mark.parametrize("field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]])
+def test_patch_request_for_literal_with_multiple_values():
+    class Schema(DualBaseModel):
+        field: Literal[1, 2, 3]
+        field2: Literal[4]
+
+    schema = Schema.__patch_request__()
+    assert schema.field is None
+    assert schema.field2 == 4
+
+
+@pytest.mark.parametrize(
+    "field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]]
+)
 def test_annotated_model_creation_with_regular_metadata(field_type):
     class Schema(DualBaseModel):
         field: field_type
 
-    assert Schema.__fields__["field"].annotation is field_type
-    assert Schema.__request__.__fields__["field"].annotation is field_type
-    assert Schema.__response__.__fields__["field"].annotation is field_type
+    assert Schema.__annotations__["field"] is field_type
+    assert Schema.__request__.__annotations__["field"] is field_type
+    assert Schema.__response__.__annotations__["field"] is field_type
 
 
 def test_eq():
@@ -399,7 +445,7 @@ def test_fastapi_weird_lack_of_qualname():
     type(DualBaseModel)("SomeModel", (DualBaseModel,), {})
 
 
-def test_config_defined_in_model():
+def test_config_defined_as_class_in_model():
     """We check that the config is possible to define and that it overrides the default config"""
 
     class Schema(DualBaseModel):
@@ -408,34 +454,70 @@ def test_config_defined_in_model():
         class Config:
             extra = Extra.ignore
 
-    assert Schema.__request__.Config.extra == Extra.ignore
-    assert Schema.__response__.Config.extra == Extra.ignore
-    assert Schema.__patch_request__.Config.extra == Extra.ignore
+    assert Schema.__request__.model_config["extra"] == "ignore"
+    assert Schema.__response__.model_config["extra"] == "ignore"
+    assert Schema.__patch_request__.model_config["extra"] == "ignore"
+
+    Schema(field=1, extra=2)
+
+    class Child(Schema):
+        field2: int
+
+    assert Child.__request__.model_config["extra"] == "ignore"
+    assert Child.__response__.model_config["extra"] == "ignore"
+    assert Child.__patch_request__.model_config["extra"] == "ignore"
+
+    Child(field=1, field2=4, extra=2)
+
+    class ModifiedChild(Schema):
+        model_config = ConfigDict(extra="forbid")
+        field2: int
+
+    assert ModifiedChild.__request__.model_config["extra"] == "forbid"
+    assert ModifiedChild.__response__.model_config["extra"] == "forbid"
+    assert ModifiedChild.__patch_request__.model_config["extra"] == "forbid"
+
+    with pytest.raises(ValidationError):
+        ModifiedChild(field=1, field2=4, extra=2)
+
+
+def test_config_defined_as_attribute_in_model():
+    """We check that the config is possible to define and that it overrides the default config"""
+
+    class Schema(DualBaseModel):
+        model_config = ConfigDict(extra="ignore")
+        field: int
+
+    assert Schema.__request__.model_config["extra"] == "ignore"
+    assert Schema.__response__.model_config["extra"] == "ignore"
+    assert Schema.__patch_request__.model_config["extra"] == "ignore"
 
     Schema(field=1, extra=2)
 
 
 def test_config_defined_in_kwargs():
-    """We check that the config is possible to define and that it overrides the default config"""
+    """We check that the config is possible to define and that it doesn't override the default config"""
 
-    class Schema(DualBaseModel, extra=Extra.ignore):
+    class Schema(DualBaseModel, extra="ignore"):
         field: int
 
-    assert Schema.__request__.Config.extra == Extra.forbid
-    assert Schema.__response__.Config.extra == Extra.ignore
-    assert Schema.__patch_request__.Config.extra == Extra.forbid
+    assert Schema.__request__.model_config["extra"] == "forbid"
+    assert Schema.__response__.model_config["extra"] == "ignore"
+    assert Schema.__patch_request__.model_config["extra"] == "forbid"
 
-    Schema(field=1, extra=2)
+    with pytest.raises(ValidationError):
+        Schema(field=1, extra=2)
+
 
 @pytest.mark.xfail(reason="Super calls are not supported yet")
 def test_super_calls_in_init():
     class Schema(DualBaseModel):
         field: int
-        
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.field = self.field + 1
-    
+
     assert Schema.__request__(field=1).field == 2
     assert Schema.__response__(field=1).field == 2
     assert Schema.__patch_request__(field=1).field == 2
