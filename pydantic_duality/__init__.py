@@ -10,6 +10,7 @@ from typing import (
     ClassVar,
     Dict,
     List,
+    Literal,
     Mapping,
     Optional,
     Tuple,
@@ -74,11 +75,13 @@ def _resolve_annotation(annotation, attr: str) -> Any:
     return annotation
 
 
-def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
+def _alter_attrs(attrs: Dict[str, object], name: str, suffix: str, attr: str):
     attrs = attrs.copy()
 
     if "__qualname__" in attrs:
-        attrs["__qualname__"] = attrs["__qualname__"].rsplit(".", 1)[0] + "." + name
+        attrs["__qualname__"] = attrs["__qualname__"] + suffix
+    if "Config" in attrs and inspect.isclass(attrs["Config"]):
+        attrs["Config"].__qualname__ = attrs["__qualname__"] + ".Config"
     if "__annotations__" in attrs and isinstance(attrs["__annotations__"], dict):
         annotations = attrs["__annotations__"].copy()
         for key, val in annotations.items():
@@ -91,6 +94,11 @@ def _alter_attrs(attrs: Dict[str, object], name: str, attr: str):
                     )
                 elif isinstance(annotations[key], str):
                     annotations[key] = f"Optional[{annotations[key]}]"
+                elif get_origin(annotations[key]) == Literal:
+                    if len(get_args(annotations[key])) == 1:
+                        attrs[key] = get_args(annotations[key])[0]
+                    else:
+                        annotations[key] = Optional[annotations[key]]
                 else:
                     annotations[key] = Optional[annotations[key]]
         attrs["__annotations__"] = annotations
@@ -223,7 +231,7 @@ class DualBaseModelMeta(ModelMetaclass):
         request_class = ModelMetaclass(
             name + request_suffix,
             request_bases,
-            _alter_attrs(attrs, name + request_suffix, REQUEST_ATTR),
+            _alter_attrs(attrs, name, request_suffix, REQUEST_ATTR),
             **request_kwargs,
         )
         request_class.__response__ = _lazily_initalize_models(
@@ -232,7 +240,7 @@ class DualBaseModelMeta(ModelMetaclass):
             lambda: ModelMetaclass(
                 name + response_suffix,
                 tuple(_resolve_annotation(b, RESPONSE_ATTR) for b in bases),
-                _alter_attrs(attrs, name + response_suffix, RESPONSE_ATTR),
+                _alter_attrs(attrs, name, response_suffix, RESPONSE_ATTR),
                 **kwargs,
             ),
         )
@@ -255,9 +263,9 @@ class DualBaseModelMeta(ModelMetaclass):
                 name + patch_request_suffix,
                 tuple(_resolve_annotation(b, PATCH_REQUEST_ATTR) for b in bases),
                 _alter_attrs(
-                    patch_attrs, name + patch_request_suffix, PATCH_REQUEST_ATTR
+                    patch_attrs, name, patch_request_suffix, PATCH_REQUEST_ATTR
                 ),
-                **kwargs,
+                **request_kwargs,
             ),
         )
         type.__setattr__(self, REQUEST_ATTR, request_class)

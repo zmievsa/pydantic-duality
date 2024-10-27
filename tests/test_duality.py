@@ -364,7 +364,7 @@ def test_annotated_model_creation_with_discriminator():
                     }
                 }
             )
-        with pytest.raises(pydantic.errors.PydanticUserError):
+        with pytest.raises(pydantic.ValidationError):
             Schema.__patch_request__.parse_obj(
                 {
                     "child": {
@@ -378,7 +378,7 @@ def test_annotated_model_creation_with_discriminator():
             {
                 "child": {
                     "object_type": object_type,
-                    "obj": object_type,
+                    "obj": str(object_type),
                     "extra": "extra",
                 }
             }
@@ -392,9 +392,9 @@ def test_annotated_model_creation_with_regular_metadata(field_type):
     class Schema(DualBaseModel):
         field: field_type
 
-    assert Schema.model_fields["field"].annotation is field_type
-    assert Schema.__request__.__fields__["field"].annotation is field_type
-    assert Schema.__response__.__fields__["field"].annotation is field_type
+    assert Schema.__annotations__["field"] is field_type
+    assert Schema.__request__.__annotations__["field"] is field_type
+    assert Schema.__response__.__annotations__["field"] is field_type
 
 
 def test_eq():
@@ -438,12 +438,6 @@ def test_fastapi_weird_lack_of_qualname():
 def test_config_defined_as_class_in_model():
     """We check that the config is possible to define and that it overrides the default config"""
 
-    class MySchema(BaseModel):
-        field: int
-
-        class Config:
-            extra = Extra.ignore
-
     class Schema(DualBaseModel):
         field: int
 
@@ -455,6 +449,26 @@ def test_config_defined_as_class_in_model():
     assert Schema.__patch_request__.model_config["extra"] == "ignore"
 
     Schema(field=1, extra=2)
+
+    class Child(Schema):
+        field2: int
+
+    assert Child.__request__.model_config["extra"] == "ignore"
+    assert Child.__response__.model_config["extra"] == "ignore"
+    assert Child.__patch_request__.model_config["extra"] == "ignore"
+
+    Child(field=1, field2=4, extra=2)
+
+    class ModifiedChild(Schema):
+        model_config = ConfigDict(extra="forbid")
+        field2: int
+
+    assert ModifiedChild.__request__.model_config["extra"] == "forbid"
+    assert ModifiedChild.__response__.model_config["extra"] == "forbid"
+    assert ModifiedChild.__patch_request__.model_config["extra"] == "forbid"
+
+    with pytest.raises(ValidationError):
+        ModifiedChild(field=1, field2=4, extra=2)
 
 
 def test_config_defined_as_attribute_in_model():
@@ -472,7 +486,7 @@ def test_config_defined_as_attribute_in_model():
 
 
 def test_config_defined_in_kwargs():
-    """We check that the config is possible to define and that it overrides the default config"""
+    """We check that the config is possible to define and that it doesn't override the default config"""
 
     class Schema(DualBaseModel, extra="ignore"):
         field: int
@@ -481,7 +495,8 @@ def test_config_defined_in_kwargs():
     assert Schema.__response__.model_config["extra"] == "ignore"
     assert Schema.__patch_request__.model_config["extra"] == "forbid"
 
-    Schema(field=1, extra=2)
+    with pytest.raises(ValidationError):
+        Schema(field=1, extra=2)
 
 
 @pytest.mark.xfail(reason="Super calls are not supported yet")
