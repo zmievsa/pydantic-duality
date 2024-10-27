@@ -385,6 +385,16 @@ def test_annotated_model_creation_with_discriminator():
         )
 
 
+def test_patch_request_for_literal_with_multiple_values():
+    class Schema(DualBaseModel):
+        field: Literal[1, 2, 3]
+        field2: Literal[4]
+
+    schema = Schema.__patch_request__()
+    assert schema.field is None
+    assert schema.field2 == 4
+
+
 @pytest.mark.parametrize(
     "field_type", [Annotated[int, "Hello"], Annotated[int, "Hello", "Darkness"]]
 )

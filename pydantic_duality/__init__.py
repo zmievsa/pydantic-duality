@@ -42,7 +42,9 @@ PATCH_REQUEST_ATTR = "__patch_request__"
 
 
 def _replace_with_or_none(val: Any) -> Any:
-    if isinstance(val, FieldInfo) and val.default is PydanticUndefined:
+    if (
+        isinstance(val, FieldInfo) and val.default is PydanticUndefined
+    ):  # pragma: no cover
         val = copy.deepcopy(val)
         val.default = None
     else:
@@ -314,7 +316,7 @@ def generate_dual_base_model(
     request_suffix="Request",
     patch_request_suffix="PatchRequest",
 ) -> "Type[DualBaseModel]":
-    if base_config is None:
+    if base_config is None:  # pragma: no branch
         base_config = ConfigDict()
 
     class DualBaseModel(
