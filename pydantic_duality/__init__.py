@@ -62,7 +62,7 @@ def _resolve_annotation(annotation, attr: str) -> Any:
             get_origin(annotation),
             tuple(_resolve_annotation(a, attr) for a in get_args(annotation)),
         )
-    if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+    if inspect.isclass(annotation) and isinstance(annotation, ModelMetaclass):
         return annotation
     if get_origin(annotation) is Union:
         return Union.__getitem__(

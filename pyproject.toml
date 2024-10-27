@@ -32,6 +32,7 @@ branch = true
 fail_under = 90
 skip_covered = true
 skip_empty = true
+omit = ["tests/*"]
 # Taken from https://coverage.readthedocs.io/en/7.1.0/excluding.html#advanced-exclusion
 exclude_lines = [
     "pragma: no cover",
