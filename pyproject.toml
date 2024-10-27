@@ -1,13 +1,26 @@
 [tool.poetry]
 name = "pydantic-duality"
-version = "1.2.3"
+version = "2.0.0"
 description = "Automatically generate two versions of your pydantic models: one with Extra.forbid and one with Extra.ignore"
 repository = "https://github.com/zmievsa/pydantic-duality"
 readme = "README.md"
 authors = ["Stanislav Zmiev <zmievsa@gmail.com>"]
 license = "MIT"
 
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typing-extensions = ">=4.8.0"
+pydantic = "^2.0.0"
+cached-classproperty = ">=0.1.0"
+
 [tool.poetry.group.dev.dependencies]
+pyupgrade = "*"
+black = "*"
+autoflake = "*"
+pytest = ">=7.2.1"
+pytest-cov = ">=4.0.0"
+isort = "*"
 pdbpp = "^0.10.3"
 
 [tool.coverage.run]
@@ -37,21 +50,6 @@ exclude_lines = [
     "__rich_repr__",
     "__repr__",
 ]
-
-
-[tool.poetry.dependencies]
-python = "^3.9"
-typing-extensions = ">=4.8.0"
-pydantic = "^1.9.2"
-cached-classproperty = ">=0.1.0"
-
-[tool.poetry.dev-dependencies]
-pyupgrade = "*"
-black = "*"
-autoflake = "*"
-pytest = ">=7.2.1"
-pytest-cov = ">=4.0.0"
-isort = "*"
 
 
 [tool.isort]

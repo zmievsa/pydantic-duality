@@ -1,4 +1,5 @@
 from typing import Dict
+
 import pytest
 from pydantic import BaseModel
 
@@ -50,7 +51,10 @@ def test_name_overrides(overrides: Dict[str, str]):
     if "response_suffix" in overrides:
         assert Schema.__response__.__name__ == "Schema" + overrides["response_suffix"]
     if "patch_request_suffix" in overrides:
-        assert Schema.__patch_request__.__name__ == "Schema" + overrides["patch_request_suffix"]
+        assert (
+            Schema.__patch_request__.__name__
+            == "Schema" + overrides["patch_request_suffix"]
+        )
 
 
 @overrides
@@ -62,11 +66,19 @@ def test_name_overrides_level1_inheritance(overrides: Dict[str, str]):
         pass
 
     if "request_suffix" in overrides:
-        assert SubSchema.__request__.__name__ == "SubSchema" + overrides["request_suffix"]
+        assert (
+            SubSchema.__request__.__name__ == "SubSchema" + overrides["request_suffix"]
+        )
     if "response_suffix" in overrides:
-        assert SubSchema.__response__.__name__ == "SubSchema" + overrides["response_suffix"]
+        assert (
+            SubSchema.__response__.__name__
+            == "SubSchema" + overrides["response_suffix"]
+        )
     if "patch_request_suffix" in overrides:
-        assert SubSchema.__patch_request__.__name__ == "SubSchema" + overrides["patch_request_suffix"]
+        assert (
+            SubSchema.__patch_request__.__name__
+            == "SubSchema" + overrides["patch_request_suffix"]
+        )
 
 
 @overrides
@@ -85,24 +97,45 @@ def test_name_overrides_level2_inheritance(overrides: Dict[str, str]):
     assert Schema.__patch_request__.__name__ == "SchemaPatchRequest"
 
     if "request_suffix" in overrides:
-        assert SubSchema.__request__.__name__ == "SubSchema" + overrides["request_suffix"]
-        assert SubSubSchema.__request__.__name__ == "SubSubSchema" + overrides["request_suffix"]
+        assert (
+            SubSchema.__request__.__name__ == "SubSchema" + overrides["request_suffix"]
+        )
+        assert (
+            SubSubSchema.__request__.__name__
+            == "SubSubSchema" + overrides["request_suffix"]
+        )
     if "response_suffix" in overrides:
-        assert SubSchema.__response__.__name__ == "SubSchema" + overrides["response_suffix"]
-        assert SubSubSchema.__response__.__name__ == "SubSubSchema" + overrides["response_suffix"]
+        assert (
+            SubSchema.__response__.__name__
+            == "SubSchema" + overrides["response_suffix"]
+        )
+        assert (
+            SubSubSchema.__response__.__name__
+            == "SubSubSchema" + overrides["response_suffix"]
+        )
     if "patch_request_suffix" in overrides:
-        assert SubSchema.__patch_request__.__name__ == "SubSchema" + overrides["patch_request_suffix"]
-        assert SubSubSchema.__patch_request__.__name__ == "SubSubSchema" + overrides["patch_request_suffix"]
+        assert (
+            SubSchema.__patch_request__.__name__
+            == "SubSchema" + overrides["patch_request_suffix"]
+        )
+        assert (
+            SubSubSchema.__patch_request__.__name__
+            == "SubSubSchema" + overrides["patch_request_suffix"]
+        )
 
 
 @overrides
 def test_lack_of_suffix_for_base_class(overrides: Dict[str, str]):
-    if "request_suffix" in overrides and "response_suffix" in overrides and "patch_request_suffix" in overrides:
+    if (
+        "request_suffix" in overrides
+        and "response_suffix" in overrides
+        and "patch_request_suffix" in overrides
+    ):
         return
     with pytest.raises(
         TypeError,
         match="The first instance of DualBaseModel must pass suffixes for the request, response, and patch request models.",
     ):
 
-        class Schema(BaseModel, metaclass=DualBaseModelMeta, __config__=DualBaseModel.__config__, **overrides):
-            pass
+        class Schema(BaseModel, metaclass=DualBaseModelMeta, **overrides):
+            model_config = DualBaseModel.model_config
