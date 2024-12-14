@@ -275,14 +275,22 @@ class DualBaseModelMeta(ModelMetaclass):
 
     def __getattribute__(self, attr: str):
         # Note here that RESPONSE_ATTR and PATCH_REQUEST_ATTR goes into REQUEST_ATTR's __getattribute__ method
-        if attr in {
-            REQUEST_ATTR,
-            "__new__",
-            "_generate_base_alternative_classes",
-            "_generate_alternative_classes",
-        }:
+        try:
+            request_attr = type.__getattribute__(self, REQUEST_ATTR)
+        except AttributeError:
+            request_attr = None
+        if (
+            attr
+            in {
+                REQUEST_ATTR,
+                "__new__",
+                "_generate_base_alternative_classes",
+                "_generate_alternative_classes",
+            }
+            or request_attr is None
+        ):
             return type.__getattribute__(self, attr)
-        return getattr(type.__getattribute__(self, REQUEST_ATTR), attr)
+        return getattr(request_attr, attr)
 
     def __setattr__(self, attr: str, value: object):
         return setattr(type.__getattribute__(self, REQUEST_ATTR), attr, value)
