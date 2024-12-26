@@ -21,8 +21,7 @@ from typing import (
 )
 
 from cached_classproperty import cached_classproperty
-from isort import Config
-from pydantic import BaseConfig, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
